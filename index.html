@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Spray Ticket — Pasture Chemical Planner</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "lucide-react": "https://esm.sh/lucide-react@0.469.0?external=react"
+  }
+}
+</script>
+<script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: #F2F3EE; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+  // --- Storage shim -------------------------------------------------------
+  // The app was written for a host that injects window.storage. When it runs
+  // as a plain web page that object doesn't exist, so loadAll()/persist()
+  // would throw on every call. Back it with localStorage, keeping the same
+  // shape the app expects: get() -> { value } | null, set() -> boolean.
+  if (!window.storage) {
+    // Probe localStorage — it throws on opaque origins (e.g. some preview
+    // sandboxes) and is disabled for file:// in Firefox. Fall back to an
+    // in-memory store so the app still works for the session.
+    let ls = null;
+    try {
+      const t = "__spray_probe__";
+      window.localStorage.setItem(t, "1");
+      window.localStorage.removeItem(t);
+      ls = window.localStorage;
+    } catch (e) {
+      ls = null;
+    }
+    const mem = new Map();
+    window.storage = {
+      get: async (k) => {
+        const v = ls ? ls.getItem(k) : (mem.has(k) ? mem.get(k) : null);
+        return v == null ? null : { value: v };
+      },
+      set: async (k, v) => {
+        try {
+          if (ls) ls.setItem(k, v);
+          else mem.set(k, v);
+          return true;
+        } catch (e) {
+          mem.set(k, v);
+          return true;
+        }
+      },
+    };
+  }
+</script>
+
+<script type="text/babel" data-type="module" data-presets="react">
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { createRoot } from "react-dom/client";
+import {
+  Droplets,
+  History,
+  BookOpen,
+  ClipboardList,
+  AlertTriangle,
+  Scissors,
+  Plus,
+  Trash2,
+  Waves,
+  CloudRain,
+  Thermometer,
+  Sprout,
+  Search,
+  ChevronRight,
+  X,
+  Check,
+} from "lucide-react";
+
+/* ============================================================
+   REFERENCE DATA
+   ============================================================ */
+
+const WEEDS = [
+  { id: "dallisgrass", name: "Dallisgrass", type: "grass", wiki: "Paspalum dilatatum" },
+  { id: "johnsongrass", name: "Johnsongrass", type: "grass", wiki: "Sorghum halepense" },
+  { id: "vaseygrass", name: "Vaseygrass", type: "grass", wiki: "Paspalum urvillei" },
+  { id: "crabgrass", name: "Crabgrass", type: "grass", wiki: "Digitaria sanguinalis" },
+  { id: "sandbur", name: "Sandbur", type: "grass", wiki: "Cenchrus spinifex" },
+  { id: "nutsedge", name: "Yellow / Purple Nutsedge", type: "sedge", wiki: "Cyperus esculentus" },
+  { id: "pigweed", name: "Pigweed / Palmer Amaranth", type: "broadleaf", wiki: "Amaranthus palmeri" },
+  { id: "ragweed", name: "Ragweed", type: "broadleaf", wiki: "Ambrosia artemisiifolia" },
+  { id: "horsenettle", name: "Horsenettle", type: "broadleaf", wiki: "Solanum carolinense" },
+  { id: "buttercup", name: "Buttercup", type: "broadleaf", wiki: "Ranunculus bulbosus" },
+  { id: "thistle", name: "Thistle", type: "broadleaf", wiki: "Cirsium vulgare" },
+  { id: "cocklebur", name: "Cocklebur", type: "broadleaf", wiki: "Xanthium strumarium" },
+  { id: "dock", name: "Curly Dock", type: "broadleaf", wiki: "Rumex crispus" },
+  { id: "plantain", name: "Plantain", type: "broadleaf", wiki: "Plantago major" },
+  { id: "sericea", name: "Sericea Lespedeza", type: "broadleaf", wiki: "Lespedeza cuneata" },
+  { id: "smilax", name: "Smilax / Greenbrier", type: "brush", wiki: "Smilax rotundifolia" },
+  { id: "dewberry", name: "Dewberry / Blackberry", type: "brush", wiki: "Rubus flagellaris" },
+  { id: "privet", name: "Privet", type: "brush", wiki: "Ligustrum sinense" },
+  { id: "mesquite", name: "Mesquite", type: "brush", wiki: "Prosopis glandulosa" },
+  { id: "pricklypear", name: "Prickly Pear", type: "brush", wiki: "Opuntia engelmannii" },
+];
+
+// grazingRestrictionDays / hayRestrictionDays: null = none on label (beef cattle, general),
+// "varies" = check label / dairy vs beef differ. manureMonths = carryover restriction on
+// treated hay/manure used off-property (relevant since hay is given away here).
+const HERBICIDES = [
+  {
+    id: "24d",
+    name: "2,4-D amine (e.g. Weedar 64)",
+    moa: "4 (Synthetic Auxin)",
+    targets: ["pigweed", "ragweed", "cocklebur", "dock", "plantain", "thistle", "horsenettle"],
+    use: ["pasture", "hay"],
+    rate: "1–2 pt/ac (broadcast)",
+    grazing: "0 days (beef); check label for dairy/lactating",
+    hay: "7 days before cutting (varies by label)",
+    manureMonths: 0,
+    waterBufferFt: 100,
+    tempWindow: "Above 60°F, actively growing, before bloom",
+    notes: "Cheap, effective on young broadleaves. Volatile ester forms can drift onto trees/gardens — use amine near sensitive areas.",
+    restrictedUse: false,
+  },
+  {
+    id: "grazonnext",
+    name: "GrazonNext HL (aminopyralid + 2,4-D)",
+    moa: "4",
+    targets: ["thistle", "ragweed", "horsenettle", "dewberry", "cocklebur", "dock", "sericea"],
+    use: ["pasture", "hay"],
+    rate: "1.2–1.5 pt/ac",
+    grazing: "No restriction, beef or dairy",
+    hay: "No cutting restriction, but treated hay/manure carries residue",
+    manureMonths: 18,
+    waterBufferFt: 100,
+    tempWindow: "Spring or fall, active growth, before bud stage on thistle",
+    notes: "Aminopyralid persists in hay, manure, and compost for a long time — do NOT give away, sell, or spread manure/hay from treated fields where it could reach gardens, tomatoes, or other broadleaf crops downstream. This is the #1 misuse complaint with this product.",
+    restrictedUse: false,
+  },
+  {
+    id: "milestone",
+    name: "Milestone (aminopyralid)",
+    moa: "4",
+    targets: ["thistle", "ragweed", "dock", "sericea"],
+    use: ["pasture", "hay"],
+    rate: "3–7 fl oz/ac",
+    grazing: "No restriction",
+    hay: "No cutting restriction",
+    manureMonths: 18,
+    waterBufferFt: 100,
+    tempWindow: "Spring rosette stage best",
+    notes: "Very grass-safe, low use rate. Same manure/hay carryover caution as GrazonNext.",
+    restrictedUse: false,
+  },
+  {
+    id: "pasturegard",
+    name: "PastureGard HL (triclopyr + fluroxypyr)",
+    moa: "4",
+    targets: ["dewberry", "smilax", "privet", "mesquite", "pricklypear", "horsenettle"],
+    use: ["pasture", "hay"],
+    rate: "1–2 pt/ac (foliar); higher for brush/basal",
+    grazing: "No restriction for beef; lactating dairy 3 days",
+    hay: "No restriction (beef)",
+    manureMonths: 0,
+    waterBufferFt: 100,
+    tempWindow: "Actively growing brush, full leaf-out",
+    notes: "Good all-around brush + broadleaf combo where you don't have a manure/hay carryover concern.",
+    restrictedUse: false,
+  },
+  {
+    id: "remedyultra",
+    name: "Remedy Ultra (triclopyr ester)",
+    moa: "4",
+    targets: ["smilax", "dewberry", "privet", "mesquite", "pricklypear"],
+    use: ["pasture", "hay"],
+    rate: "1–4 pt/ac foliar; up to 1 gal basal bark in oil carrier",
+    grazing: "No restriction for beef cattle",
+    hay: "No restriction",
+    manureMonths: 0,
+    waterBufferFt: 100,
+    tempWindow: "Full leaf brush, or dormant season for basal bark",
+    notes: "Already in your rotation for smilax. Ester formulation volatilizes in heat — avoid spraying above ~85°F near sensitive trees/gardens.",
+    restrictedUse: false,
+  },
+  {
+    id: "pastora",
+    name: "Pastora (metsulfuron + nicosulfuron)",
+    moa: "2 (ALS inhibitor)",
+    targets: ["johnsongrass", "crabgrass", "pigweed", "ragweed", "horsenettle"],
+    use: ["pasture", "hay"],
+    rate: "1–1.5 oz/ac + NIS",
+    grazing: "No restriction",
+    hay: "No restriction",
+    manureMonths: 0,
+    waterBufferFt: 100,
+    tempWindow: "Johnsongrass 12–24\" tall, actively growing",
+    notes: "Already in your rotation. Bermudagrass can yellow/stunt temporarily above labeled rate — don't exceed 1.5 oz/ac on established bermuda.",
+    restrictedUse: false,
+  },
+  {
+    id: "outrider",
+    name: "Outrider (sulfosulfuron)",
+    moa: "2",
+    targets: ["johnsongrass", "nutsedge", "vaseygrass"],
+    use: ["hay", "pasture"],
+    rate: "1.33–2.67 oz/ac + NIS",
+    grazing: "No restriction",
+    hay: "No restriction",
+    manureMonths: 0,
+    waterBufferFt: 100,
+    tempWindow: "Johnsongrass in boot to early head stage",
+    notes: "Already in your rotation for johnsongrass in hay fields. Same ALS mode of action as Pastora — alternate MOA groups between years to slow resistance.",
+    restrictedUse: false,
+  },
+  {
+    id: "msma",
+    name: "MSMA (e.g. Target 6 Plus)",
+    moa: "17 (Organic arsenical)",
+    targets: ["dallisgrass", "crabgrass", "nutsedge"],
+    use: ["pasture"],
+    rate: "2–2.67 pt/ac, 2 apps 7–10 days apart",
+    grazing: "Check current label — varies",
+    hay: "Check current label — varies",
+    manureMonths: 0,
+    waterBufferFt: 150,
+    tempWindow: "Warm, actively growing dallisgrass",
+    notes: "⚠ EPA cancelled most agricultural MSMA registrations years ago with only narrow exceptions remaining (cotton, sod farms, highway ROW, golf courses in some states). Pasture/turf uses have been phased out in most states. Confirm MSMA is still legally labeled for pasture use in Texas before applying — this is worth a quick call to your county extension office or ag chemical dealer, since registrations shift and existing-stock rules change.",
+    restrictedUse: true,
+  },
+  {
+    id: "sedgehammer",
+    name: "Sedgehammer (halosulfuron)",
+    moa: "2",
+    targets: ["nutsedge"],
+    use: ["pasture", "hay"],
+    rate: "1.33 oz/ac + NIS",
+    grazing: "No restriction",
+    hay: "No restriction",
+    manureMonths: 0,
+    waterBufferFt: 100,
+    tempWindow: "Nutsedge 3–8 leaf stage",
+    notes: "Purpose-built for nutsedge, gentle on bermuda.",
+    restrictedUse: false,
+  },
+  {
+    id: "chaparral",
+    name: "Chaparral (aminopyralid + metsulfuron)",
+    moa: "4 + 2",
+    targets: ["dewberry", "thistle", "ragweed", "horsenettle", "sericea", "buttercup"],
+    use: ["pasture", "hay"],
+    rate: "2–3 oz/ac",
+    grazing: "No restriction",
+    hay: "No restriction",
+    manureMonths: 18,
+    waterBufferFt: 100,
+    tempWindow: "Spring, active growth",
+    notes: "Broad broadleaf + light brush combo. Same manure/hay carryover caution as GrazonNext/Milestone (aminopyralid component).",
+    restrictedUse: false,
+  },
+  {
+    id: "surmount",
+    name: "Surmount (picloram + fluroxypyr)",
+    moa: "4",
+    targets: ["mesquite", "privet", "pricklypear", "dewberry"],
+    use: ["pasture"],
+    rate: "1.5–4 pt/ac",
+    grazing: "No restriction for beef",
+    hay: "Do not cut for hay",
+    manureMonths: 0,
+    waterBufferFt: 100,
+    tempWindow: "Full leaf-out on brush, warm season",
+    notes: "Picloram is a Restricted Use Pesticide in many states and highly soil-persistent — do not use where roots of desirable trees may take it up, and never on hay fields.",
+    restrictedUse: true,
+  },
+];
+
+const SOIL_TYPES = ["Sandy", "Sandy Loam", "Loam", "Clay Loam", "Clay", "Bottomland / Poorly Drained"];
+const GRASS_TYPES = ["Common Bermudagrass", "Hybrid Bermudagrass (e.g. Tifton 85)", "Bahiagrass", "Bermuda/Bahia Mix", "Native/Unimproved"];
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+/* ============================================================
+   WEED THUMBNAIL (lazy-fetched from Wikipedia, cached, graceful fallback)
+   ============================================================ */
+
+const WIKI_IMG_CACHE = {};
+
+// Wikipedia's REST API rate-limits bursts (HTTP 429). The weed grid mounts ~20
+// thumbnails at once, so route every lookup through a small queue that caps
+// concurrency and backs off once when throttled.
+const wikiQueue = [];
+let wikiActive = 0;
+const WIKI_MAX_CONCURRENT = 3;
+
+function pumpWikiQueue() {
+  while (wikiActive < WIKI_MAX_CONCURRENT && wikiQueue.length) {
+    const job = wikiQueue.shift();
+    wikiActive++;
+    job().finally(() => {
+      wikiActive--;
+      pumpWikiQueue();
+    });
+  }
+}
+
+function fetchWikiThumb(title) {
+  return new Promise((resolve, reject) => {
+    const attempt = (retriesLeft) => {
+      const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+      fetch(url)
+        .then((r) => {
+          if (r.status === 429 && retriesLeft > 0) {
+            const wait = (Number(r.headers.get("retry-after")) || 2) * 1000;
+            setTimeout(() => attempt(retriesLeft - 1), wait);
+            return null;
+          }
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
+        .then((data) => {
+          if (data === null) return; // retry scheduled
+          resolve(data?.thumbnail?.source || data?.originalimage?.source || null);
+        })
+        .catch(reject);
+    };
+    attempt(2);
+  });
+}
+
+function queueWikiThumb(title) {
+  return new Promise((resolve, reject) => {
+    wikiQueue.push(() => fetchWikiThumb(title).then(resolve, reject));
+    pumpWikiQueue();
+  });
+}
+
+function WeedThumb({ title, alt }) {
+  const [src, setSrc] = useState(WIKI_IMG_CACHE[title] && WIKI_IMG_CACHE[title] !== "FAILED" ? WIKI_IMG_CACHE[title] : null);
+  const [failed, setFailed] = useState(WIKI_IMG_CACHE[title] === "FAILED");
+
+  useEffect(() => {
+    if (WIKI_IMG_CACHE[title]) {
+      if (WIKI_IMG_CACHE[title] === "FAILED") setFailed(true);
+      else setSrc(WIKI_IMG_CACHE[title]);
+      return;
+    }
+    let cancelled = false;
+    queueWikiThumb(title)
+      .then((url) => {
+        if (cancelled) return;
+        if (url) {
+          WIKI_IMG_CACHE[title] = url;
+          setSrc(url);
+        } else {
+          WIKI_IMG_CACHE[title] = "FAILED";
+          setFailed(true);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        WIKI_IMG_CACHE[title] = "FAILED";
+        setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [title]);
+
+  if (failed || !src) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-[#EFF1E8] text-[#9CA391]">
+        <Sprout size={20} />
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      className="w-full h-full object-cover"
+      onError={() => {
+        WIKI_IMG_CACHE[title] = "FAILED";
+        setFailed(true);
+      }}
+    />
+  );
+}
+
+/* ============================================================
+   STORAGE HELPERS
+   ============================================================ */
+
+async function loadAll() {
+  const out = { applications: [], cuttings: [], lastInputs: null };
+  try {
+    const a = await window.storage.get("spray-planner:applications");
+    if (a) out.applications = JSON.parse(a.value);
+  } catch (e) {}
+  try {
+    const c = await window.storage.get("spray-planner:cuttings");
+    if (c) out.cuttings = JSON.parse(c.value);
+  } catch (e) {}
+  try {
+    const l = await window.storage.get("spray-planner:last-inputs");
+    if (l) out.lastInputs = JSON.parse(l.value);
+  } catch (e) {}
+  return out;
+}
+
+/* ============================================================
+   UI PRIMITIVES
+   ============================================================ */
+
+function Pill({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+        active
+          ? "bg-[#2B4C3F] border-[#2B4C3F] text-white"
+          : "bg-white border-[#D8D9CE] text-[#3A3D33] hover:border-[#2B4C3F]"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function SectionLabel({ icon: Icon, children }) {
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <Icon size={16} className="text-[#6B7A5E]" />
+      <h3 className="font-semibold text-[#23261F] tracking-wide uppercase text-xs" style={{ letterSpacing: "0.08em" }}>
+        {children}
+      </h3>
+    </div>
+  );
+}
+
+/* ============================================================
+   MAIN APP
+   ============================================================ */
+
+function SprayPlanner() {
+  const [tab, setTab] = useState("plan");
+  const [loaded, setLoaded] = useState(false);
+  const [applications, setApplications] = useState([]);
+  const [cuttings, setCuttings] = useState([]);
+  const [saveError, setSaveError] = useState(null);
+
+  // Wizard state
+  const [useType, setUseType] = useState("pasture"); // pasture | hay | both
+  const [selectedWeeds, setSelectedWeeds] = useState([]);
+  const [soil, setSoil] = useState(SOIL_TYPES[0]);
+  const [grass, setGrass] = useState(GRASS_TYPES[0]);
+  const [month, setMonth] = useState(MONTHS[new Date().getMonth()]);
+  const [fieldName, setFieldName] = useState("");
+  const [nearWater, setNearWater] = useState(true);
+  const [distToWater, setDistToWater] = useState(150);
+  const [daysSinceRain, setDaysSinceRain] = useState("");
+  const [rainExpected, setRainExpected] = useState(false);
+  const [recentTemp, setRecentTemp] = useState("");
+  const [weedSearch, setWeedSearch] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      const data = await loadAll();
+      setApplications(data.applications);
+      setCuttings(data.cuttings);
+      if (data.lastInputs) {
+        const li = data.lastInputs;
+        setUseType(li.useType ?? "pasture");
+        setSelectedWeeds(li.selectedWeeds ?? []);
+        setSoil(li.soil ?? SOIL_TYPES[0]);
+        setGrass(li.grass ?? GRASS_TYPES[0]);
+        setFieldName(li.fieldName ?? "");
+        setNearWater(li.nearWater ?? true);
+        setDistToWater(li.distToWater ?? 150);
+      }
+      setLoaded(true);
+    })();
+  }, []);
+
+  const persist = useCallback(async (key, value) => {
+    try {
+      const res = await window.storage.set(key, JSON.stringify(value), false);
+      if (!res) setSaveError("Save didn't go through — your data may not persist.");
+      else setSaveError(null);
+    } catch (e) {
+      setSaveError("Save failed — your data may not persist this session.");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    const inputs = { useType, selectedWeeds, soil, grass, fieldName, nearWater, distToWater };
+    persist("spray-planner:last-inputs", inputs);
+  }, [loaded, useType, selectedWeeds, soil, grass, fieldName, nearWater, distToWater, persist]);
+
+  function toggleWeed(id) {
+    setSelectedWeeds((prev) => (prev.includes(id) ? prev.filter((w) => w !== id) : [...prev, id]));
+  }
+
+  async function addApplication(entry) {
+    const next = [{ ...entry, id: uid() }, ...applications];
+    setApplications(next);
+    await persist("spray-planner:applications", next);
+  }
+  async function removeApplication(id) {
+    const next = applications.filter((a) => a.id !== id);
+    setApplications(next);
+    await persist("spray-planner:applications", next);
+  }
+  async function addCutting(entry) {
+    const next = [{ ...entry, id: uid() }, ...cuttings];
+    setCuttings(next);
+    await persist("spray-planner:cuttings", next);
+  }
+  async function removeCutting(id) {
+    const next = cuttings.filter((c) => c.id !== id);
+    setCuttings(next);
+    await persist("spray-planner:cuttings", next);
+  }
+
+  // ---- Recommendation engine ----
+  const recommendations = useMemo(() => {
+    if (selectedWeeds.length === 0) return [];
+
+    const recentMoaGroups = applications
+      .slice()
+      .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
+      .slice(0, 4)
+      .map((a) => {
+        const h = HERBICIDES.find((h) => h.id === a.herbicideId);
+        return h ? h.moa : null;
+      })
+      .filter(Boolean);
+
+    const candidates = HERBICIDES.map((h) => {
+      const hits = h.targets.filter((t) => selectedWeeds.includes(t));
+      if (hits.length === 0) return null;
+
+      const useOk =
+        useType === "both" ? h.use.includes("pasture") || h.use.includes("hay") : h.use.includes(useType);
+      if (!useOk) return null;
+
+      const flags = [];
+      if (nearWater && distToWater < h.waterBufferFt) {
+        flags.push({
+          level: "danger",
+          text: `Water buffer: label calls for ~${h.waterBufferFt} ft from water; you entered ${distToWater} ft to the lake/pond.`,
+        });
+      }
+      if (recentMoaGroups.filter((m) => m === h.moa).length >= 2) {
+        flags.push({
+          level: "warn",
+          text: `You've used MOA group ${h.moa} in ${recentMoaGroups.filter((m) => m === h.moa).length} of your last 4 logged applications — consider rotating to a different mode of action to slow resistance.`,
+        });
+      }
+      if (h.restrictedUse) {
+        flags.push({ level: "warn", text: "Verify current registration/restricted-use status before applying — this product's labeled uses have shifted in recent years." });
+      }
+      if (h.manureMonths > 0) {
+        flags.push({
+          level: "warn",
+          text: `Aminopyralid carryover: don't give away or sell hay/manure from this field for ~${h.manureMonths} months — it can damage broadleaf crops/gardens wherever it ends up.`,
+        });
+      }
+      if (rainExpected) {
+        flags.push({ level: "warn", text: "Rain expected — most of these products want 4–6 hrs (some 24 hrs) rain-free after application to avoid wash-off and runoff to the lake." });
+      }
+      if (daysSinceRain !== "" && Number(daysSinceRain) > 21) {
+        flags.push({ level: "info", text: "Dry stretch (3+ weeks) — drought-stressed weeds absorb herbicide poorly. Consider waiting for a green-up, or adjusting the surfactant rate per label." });
+      }
+
+      const score = hits.length * 10 - flags.filter((f) => f.level === "danger").length * 100 - flags.filter((f) => f.level === "warn").length * 2;
+
+      return { herbicide: h, hits, flags, score };
+    }).filter(Boolean);
+
+    candidates.sort((a, b) => b.score - a.score);
+    return candidates;
+  }, [selectedWeeds, useType, nearWater, distToWater, applications, rainExpected, daysSinceRain]);
+
+  const filteredWeeds = WEEDS.filter((w) => w.name.toLowerCase().includes(weedSearch.toLowerCase()));
+
+  return (
+    <div className="min-h-screen" style={{ background: "#F2F3EE", fontFamily: "'Inter', system-ui, sans-serif", color: "#23261F" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+        .display { font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.01em; }
+        .mono { font-family: 'IBM Plex Mono', monospace; }
+        .ticket { position: relative; }
+        .ticket::before, .ticket::after {
+          content: ""; position: absolute; width: 16px; height: 16px; border-radius: 50%;
+          background: #F2F3EE; top: 50%; transform: translateY(-50%);
+        }
+        .ticket::before { left: -8px; }
+        .ticket::after { right: -8px; }
+        input[type="text"], input[type="number"], select {
+          background: white; border: 1px solid #D8D9CE; border-radius: 8px; padding: 8px 10px;
+          font-size: 14px; color: #23261F; width: 100%;
+        }
+        input:focus, select:focus { outline: 2px solid #6B7A5E; outline-offset: 1px; }
+      `}</style>
+
+      {/* Header */}
+      <header className="border-b" style={{ borderColor: "#D8D9CE", background: "#23261F" }}>
+        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded flex items-center justify-center" style={{ background: "#6B7A5E" }}>
+              <Droplets size={18} color="white" />
+            </div>
+            <div>
+              <div className="display text-white text-xl font-bold leading-none">SPRAY TICKET</div>
+              <div className="text-[10px] uppercase tracking-widest text-[#9CA391]">Pasture Chemical Planner</div>
+            </div>
+          </div>
+          {saveError && (
+            <div className="text-xs text-[#E8B84B] flex items-center gap-1">
+              <AlertTriangle size={13} /> {saveError}
+            </div>
+          )}
+        </div>
+        <nav className="max-w-5xl mx-auto px-4 flex gap-1 pb-2">
+          {[
+            { id: "plan", label: "New Recommendation", icon: Droplets },
+            { id: "log", label: "Application Log", icon: ClipboardList },
+            { id: "cutting", label: "Cutting Log", icon: Scissors },
+            { id: "reference", label: "Reference Library", icon: BookOpen },
+          ].map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-t-md transition-colors ${
+                tab === t.id ? "bg-[#F2F3EE] text-[#23261F] font-semibold" : "text-[#B9BFAE] hover:text-white"
+              }`}
+            >
+              <t.icon size={14} /> {t.label}
+            </button>
+          ))}
+        </nav>
+      </header>
+
+      <main className="max-w-5xl mx-auto px-4 py-6">
+        {tab === "plan" && (
+          <PlanTab
+            {...{
+              useType, setUseType, selectedWeeds, toggleWeed, soil, setSoil, grass, setGrass,
+              month, setMonth, fieldName, setFieldName, nearWater, setNearWater, distToWater, setDistToWater,
+              daysSinceRain, setDaysSinceRain, rainExpected, setRainExpected, recentTemp, setRecentTemp,
+              weedSearch, setWeedSearch, filteredWeeds, recommendations, addApplication,
+            }}
+          />
+        )}
+        {tab === "log" && <LogTab applications={applications} onAdd={addApplication} onRemove={removeApplication} />}
+        {tab === "cutting" && <CuttingTab cuttings={cuttings} onAdd={addCutting} onRemove={removeCutting} />}
+        {tab === "reference" && <ReferenceTab />}
+      </main>
+
+      <footer className="max-w-5xl mx-auto px-4 pb-10 pt-4 text-xs text-[#6B7A5E] leading-relaxed">
+        This tool is a planning aid built from general pasture-herbicide knowledge — it is not a substitute for the
+        current product label, which is the legal application document, or for your county extension agent / a
+        licensed applicator. Labels, restricted-use status, and grazing/haying restrictions change — verify before
+        every application, especially near your lake frontage.
+      </footer>
+    </div>
+  );
+}
+
+/* ============================================================
+   PLAN TAB
+   ============================================================ */
+
+function PlanTab(props) {
+  const {
+    useType, setUseType, selectedWeeds, toggleWeed, soil, setSoil, grass, setGrass,
+    month, setMonth, fieldName, setFieldName, nearWater, setNearWater, distToWater, setDistToWater,
+    daysSinceRain, setDaysSinceRain, rainExpected, setRainExpected, recentTemp, setRecentTemp,
+    weedSearch, setWeedSearch, filteredWeeds, recommendations, addApplication,
+  } = props;
+
+  const [loggingId, setLoggingId] = useState(null);
+  const [rateUsed, setRateUsed] = useState("");
+  const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10));
+
+  async function confirmLog(h) {
+    await addApplication({
+      date: logDate,
+      field: fieldName || "Unnamed field",
+      herbicideId: h.id,
+      herbicideName: h.name,
+      rate: rateUsed || h.rate,
+      weeds: selectedWeeds,
+      useType,
+    });
+    setLoggingId(null);
+    setRateUsed("");
+  }
+
+  return (
+    <div className="grid md:grid-cols-2 gap-6">
+      <div className="space-y-6">
+        <div className="bg-white rounded-xl border border-[#D8D9CE] p-5">
+          <SectionLabel icon={ClipboardList}>Field &amp; Use</SectionLabel>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-[#6B7A5E] mb-1 block">Field / pasture name</label>
+              <input type="text" value={fieldName} onChange={(e) => setFieldName(e.target.value)} placeholder="e.g. South lake field" />
+            </div>
+            <div className="flex gap-2">
+              {["pasture", "hay", "both"].map((u) => (
+                <Pill key={u} active={useType === u} onClick={() => setUseType(u)}>
+                  {u === "pasture" ? "Grazing" : u === "hay" ? "Hay" : "Both"}
+                </Pill>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-[#6B7A5E] mb-1 block">Forage / grass type</label>
+                <select value={grass} onChange={(e) => setGrass(e.target.value)}>
+                  {GRASS_TYPES.map((g) => <option key={g}>{g}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-[#6B7A5E] mb-1 block">Soil type</label>
+                <select value={soil} onChange={(e) => setSoil(e.target.value)}>
+                  {SOIL_TYPES.map((s) => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-[#6B7A5E] mb-1 block">Month</label>
+              <select value={month} onChange={(e) => setMonth(e.target.value)}>
+                {MONTHS.map((m) => <option key={m}>{m}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-[#D8D9CE] p-5">
+          <SectionLabel icon={Waves}>Water &amp; Conditions</SectionLabel>
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={nearWater} onChange={(e) => setNearWater(e.target.checked)} className="w-4 h-4" />
+              This field borders a lake, pond, or creek
+            </label>
+            {nearWater && (
+              <div>
+                <label className="text-xs text-[#6B7A5E] mb-1 block">Approx. distance from spray area to water (ft)</label>
+                <input type="number" value={distToWater} onChange={(e) => setDistToWater(Number(e.target.value))} />
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-[#6B7A5E] mb-1 flex items-center gap-1"><CloudRain size={12} /> Days since last rain</label>
+                <input type="number" value={daysSinceRain} onChange={(e) => setDaysSinceRain(e.target.value)} placeholder="e.g. 5" />
+              </div>
+              <div>
+                <label className="text-xs text-[#6B7A5E] mb-1 flex items-center gap-1"><Thermometer size={12} /> Recent high temp (°F)</label>
+                <input type="number" value={recentTemp} onChange={(e) => setRecentTemp(e.target.value)} placeholder="e.g. 88" />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={rainExpected} onChange={(e) => setRainExpected(e.target.checked)} className="w-4 h-4" />
+              Rain in forecast within 24 hrs
+            </label>
+            <p className="text-[11px] text-[#8A9080] leading-snug">
+              This tool doesn't pull live weather — punch in what you're seeing off your weather app for the field's
+              zip code, or your own gauge readings, and it'll factor into the flags below.
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-[#D8D9CE] p-5">
+          <SectionLabel icon={Sprout}>Weeds Present</SectionLabel>
+          <div className="relative mb-3">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#B9BFAE]" />
+            <input type="text" value={weedSearch} onChange={(e) => setWeedSearch(e.target.value)} placeholder="Search weed species…" className="pl-8" />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            {filteredWeeds.map((w) => {
+              const active = selectedWeeds.includes(w.id);
+              return (
+                <button
+                  key={w.id}
+                  onClick={() => toggleWeed(w.id)}
+                  className={`text-left rounded-lg overflow-hidden border-2 transition-colors bg-white ${
+                    active ? "border-[#2B4C3F]" : "border-transparent hover:border-[#D8D9CE]"
+                  }`}
+                >
+                  <div className="h-20 w-full relative">
+                    <WeedThumb title={w.wiki} alt={w.name} />
+                    {active && (
+                      <div className="absolute top-1.5 right-1.5 bg-[#2B4C3F] rounded-full p-1 shadow">
+                        <Check size={11} color="white" />
+                      </div>
+                    )}
+                  </div>
+                  <div className={`px-2 py-1.5 text-xs font-medium leading-snug ${active ? "bg-[#EAF0E6] text-[#2B4C3F]" : "text-[#3A3D33]"}`}>
+                    {w.name}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-[#9CA391] mt-2">Reference photos via Wikipedia — for ID confirmation only, not a substitute for a county extension agent on tricky calls.</p>
+        </div>
+      </div>
+
+      {/* Recommendations */}
+      <div className="space-y-4">
+        <SectionLabel icon={Droplets}>Recommendations</SectionLabel>
+        {selectedWeeds.length === 0 && (
+          <div className="text-sm text-[#6B7A5E] bg-white rounded-xl border border-dashed border-[#D8D9CE] p-6 text-center">
+            Select the weed species present in the field to generate spray recommendations.
+          </div>
+        )}
+        {selectedWeeds.length > 0 && recommendations.length === 0 && (
+          <div className="text-sm text-[#6B7A5E] bg-white rounded-xl border border-[#D8D9CE] p-6 text-center">
+            No product in this reference set matches that combination for the selected use ({useType}). Check the
+            Reference Library for a wider list, or a licensed applicator can help with edge cases.
+          </div>
+        )}
+        {recommendations.map(({ herbicide: h, hits, flags }) => (
+          <div key={h.id} className="ticket bg-white rounded-lg border-2 border-dashed border-[#D8D9CE] p-4">
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <div>
+                <div className="display text-lg font-bold leading-tight">{h.name}</div>
+                <div className="text-[11px] mono text-[#8A9080]">MOA GROUP {h.moa}</div>
+              </div>
+              <span className="mono text-[10px] px-2 py-1 rounded bg-[#EFF1E8] text-[#3A3D33] whitespace-nowrap">
+                {hits.length} weed match{hits.length > 1 ? "es" : ""}
+              </span>
+            </div>
+            <div className="text-sm text-[#3A3D33] flex flex-wrap gap-x-4 gap-y-1 mb-2 mono">
+              <span><b>Rate:</b> {h.rate}</span>
+              <span><b>Grazing:</b> {h.grazing}</span>
+              <span><b>Hay:</b> {h.hay}</span>
+            </div>
+            <div className="text-xs text-[#6B7A5E] mb-2">
+              Targets here: {hits.map((id) => WEEDS.find((w) => w.id === id)?.name).join(", ")}
+            </div>
+            <div className="text-xs text-[#3A3D33] mb-2">{h.notes}</div>
+            <div className="text-xs text-[#6B7A5E] mb-3">Window: {h.tempWindow}</div>
+
+            {flags.length > 0 && (
+              <div className="space-y-1.5 mb-3">
+                {flags.map((f, i) => (
+                  <div
+                    key={i}
+                    className={`text-xs rounded px-2.5 py-1.5 flex items-start gap-1.5 ${
+                      f.level === "danger" ? "bg-[#FBEAE6] text-[#8C2E1F]" : f.level === "warn" ? "bg-[#FCF3DC] text-[#7A5A12]" : "bg-[#EAF0E6] text-[#3F5A34]"
+                    }`}
+                  >
+                    <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                    <span>{f.text}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {loggingId === h.id ? (
+              <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-[#EFF1E8]">
+                <div>
+                  <label className="text-[10px] text-[#6B7A5E] block">Date sprayed</label>
+                  <input type="text" value={logDate} onChange={(e) => setLogDate(e.target.value)} className="w-32" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-[#6B7A5E] block">Rate used</label>
+                  <input type="text" value={rateUsed} onChange={(e) => setRateUsed(e.target.value)} placeholder={h.rate} className="w-40" />
+                </div>
+                <button onClick={() => confirmLog(h)} className="px-3 py-1.5 rounded bg-[#2B4C3F] text-white text-sm flex items-center gap-1">
+                  <Check size={13} /> Save to log
+                </button>
+                <button onClick={() => setLoggingId(null)} className="px-2 py-1.5 text-sm text-[#6B7A5E]">Cancel</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setLoggingId(h.id)}
+                className="text-sm font-medium text-[#2B4C3F] flex items-center gap-1 pt-2 border-t border-[#EFF1E8] w-full"
+              >
+                <Plus size={14} /> Log this application <ChevronRight size={14} />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   APPLICATION LOG TAB
+   ============================================================ */
+
+function LogTab({ applications, onAdd, onRemove }) {
+  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), field: "", herbicideId: HERBICIDES[0].id, rate: "" });
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-xl border border-[#D8D9CE] p-5">
+        <SectionLabel icon={Plus}>Add Past Application</SectionLabel>
+        <div className="grid sm:grid-cols-4 gap-3">
+          <input type="text" placeholder="Date (YYYY-MM-DD)" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+          <input type="text" placeholder="Field name" value={form.field} onChange={(e) => setForm({ ...form, field: e.target.value })} />
+          <select value={form.herbicideId} onChange={(e) => setForm({ ...form, herbicideId: e.target.value })}>
+            {HERBICIDES.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+          </select>
+          <input type="text" placeholder="Rate used" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />
+        </div>
+        <button
+          onClick={() => {
+            if (!form.field) return;
+            const h = HERBICIDES.find((h) => h.id === form.herbicideId);
+            onAdd({ date: form.date, field: form.field, herbicideId: form.herbicideId, herbicideName: h.name, rate: form.rate || h.rate, weeds: [], useType: "pasture" });
+            setForm({ ...form, field: "", rate: "" });
+          }}
+          className="mt-3 px-4 py-2 rounded bg-[#2B4C3F] text-white text-sm font-medium"
+        >
+          Add to log
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl border border-[#D8D9CE] overflow-hidden">
+        <SectionLabel icon={History}><span className="pl-0">Application History</span></SectionLabel>
+        <div className="px-5 pb-5">
+          {applications.length === 0 ? (
+            <p className="text-sm text-[#6B7A5E]">No applications logged yet.</p>
+          ) : (
+            <table className="w-full text-sm mono">
+              <thead>
+                <tr className="text-left text-[10px] uppercase text-[#8A9080] border-b border-[#EFF1E8]">
+                  <th className="py-2 pr-2">Date</th>
+                  <th className="py-2 pr-2">Field</th>
+                  <th className="py-2 pr-2">Product</th>
+                  <th className="py-2 pr-2">Rate</th>
+                  <th className="py-2 pr-2">MOA</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {applications.map((a) => {
+                  const h = HERBICIDES.find((h) => h.id === a.herbicideId);
+                  return (
+                    <tr key={a.id} className="border-b border-[#F2F3EE]">
+                      <td className="py-2 pr-2">{a.date}</td>
+                      <td className="py-2 pr-2">{a.field}</td>
+                      <td className="py-2 pr-2">{a.herbicideName}</td>
+                      <td className="py-2 pr-2">{a.rate}</td>
+                      <td className="py-2 pr-2">{h?.moa ?? "—"}</td>
+                      <td className="py-2 text-right">
+                        <button onClick={() => onRemove(a.id)} className="text-[#B9503F]"><Trash2 size={14} /></button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   CUTTING LOG TAB
+   ============================================================ */
+
+function CuttingTab({ cuttings, onAdd, onRemove }) {
+  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), field: "", notes: "" });
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-xl border border-[#D8D9CE] p-5">
+        <SectionLabel icon={Scissors}>Log a Cutting</SectionLabel>
+        <div className="grid sm:grid-cols-3 gap-3">
+          <input type="text" placeholder="Date (YYYY-MM-DD)" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+          <input type="text" placeholder="Field name" value={form.field} onChange={(e) => setForm({ ...form, field: e.target.value })} />
+          <input type="text" placeholder="Notes (bales, cutter, etc.)" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+        </div>
+        <button
+          onClick={() => {
+            if (!form.field) return;
+            onAdd({ date: form.date, field: form.field, notes: form.notes });
+            setForm({ ...form, field: "", notes: "" });
+          }}
+          className="mt-3 px-4 py-2 rounded bg-[#2B4C3F] text-white text-sm font-medium"
+        >
+          Add to log
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl border border-[#D8D9CE] p-5">
+        <SectionLabel icon={History}>Cutting History</SectionLabel>
+        {cuttings.length === 0 ? (
+          <p className="text-sm text-[#6B7A5E]">No cuttings logged yet.</p>
+        ) : (
+          <table className="w-full text-sm mono">
+            <thead>
+              <tr className="text-left text-[10px] uppercase text-[#8A9080] border-b border-[#EFF1E8]">
+                <th className="py-2 pr-2">Date</th>
+                <th className="py-2 pr-2">Field</th>
+                <th className="py-2 pr-2">Notes</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {cuttings.map((c) => (
+                <tr key={c.id} className="border-b border-[#F2F3EE]">
+                  <td className="py-2 pr-2">{c.date}</td>
+                  <td className="py-2 pr-2">{c.field}</td>
+                  <td className="py-2 pr-2">{c.notes}</td>
+                  <td className="py-2 text-right">
+                    <button onClick={() => onRemove(c.id)} className="text-[#B9503F]"><Trash2 size={14} /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   REFERENCE TAB
+   ============================================================ */
+
+function ReferenceTab() {
+  const [q, setQ] = useState("");
+  const [expanded, setExpanded] = useState(null);
+  const filtered = HERBICIDES.filter((h) => h.name.toLowerCase().includes(q.toLowerCase()));
+
+  return (
+    <div className="space-y-4">
+      <div className="relative">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B9BFAE]" />
+        <input type="text" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products…" className="pl-8" />
+      </div>
+      {filtered.map((h) => (
+        <div key={h.id} className="bg-white rounded-lg border border-[#D8D9CE] overflow-hidden">
+          <button onClick={() => setExpanded(expanded === h.id ? null : h.id)} className="w-full flex items-center justify-between px-4 py-3 text-left">
+            <div>
+              <div className="font-semibold text-sm">{h.name}</div>
+              <div className="text-[11px] text-[#8A9080] mono">MOA {h.moa} · {h.use.join(" & ")}</div>
+            </div>
+            {h.restrictedUse && <AlertTriangle size={16} className="text-[#B9503F]" />}
+          </button>
+          {expanded === h.id && (
+            <div className="px-4 pb-4 text-sm space-y-1.5 border-t border-[#EFF1E8] pt-3">
+              <div><b>Targets:</b> {h.targets.map((id) => WEEDS.find((w) => w.id === id)?.name).join(", ")}</div>
+              <div><b>Rate:</b> {h.rate}</div>
+              <div><b>Grazing restriction:</b> {h.grazing}</div>
+              <div><b>Hay restriction:</b> {h.hay}</div>
+              <div><b>Water buffer:</b> ~{h.waterBufferFt} ft</div>
+              <div><b>Application window:</b> {h.tempWindow}</div>
+              <div className="text-[#6B7A5E]">{h.notes}</div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ============================================================
+   MOUNT
+   ============================================================ */
+
+const rootEl = document.getElementById("root");
+createRoot(rootEl).render(<SprayPlanner />);
+</script>
+</body>
+</html>
