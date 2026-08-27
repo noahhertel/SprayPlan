@@ -13,7 +13,7 @@
 <div id="root"></div>
 <script type="module">
 import React, { useState, useEffect, useMemo, useCallback } from "https://esm.sh/react@18.3.1";
-import { Droplets, History, BookOpen, ClipboardList, AlertTriangle, Scissors, Plus, Trash2, Waves, CloudRain, Thermometer, Sprout, Search, ChevronRight, X, Check, MapPin, Pencil, Layers, Bug, FlaskConical } from "https://esm.sh/lucide-react@0.383.0?deps=react@18.3.1";
+import { Droplets, History, BookOpen, ClipboardList, AlertTriangle, Scissors, Plus, Trash2, Waves, CloudRain, Thermometer, Sprout, Search, ChevronRight, X, Check, MapPin, Pencil, Layers, Bug, FlaskConical, CalendarDays } from "https://esm.sh/lucide-react@0.383.0?deps=react@18.3.1";
 import ReactDOM from "https://esm.sh/react-dom@18.3.1/client";
 
 /* ============================================================
@@ -94,7 +94,8 @@ const WEEDS = [{
 }, {
   id: "johnsongrass",
   name: "Johnsongrass",
-  type: "grass"
+  type: "grass",
+  common: true
 }, {
   id: "vaseygrass",
   name: "Vaseygrass",
@@ -102,11 +103,13 @@ const WEEDS = [{
 }, {
   id: "crabgrass",
   name: "Crabgrass",
-  type: "grass"
+  type: "grass",
+  common: true
 }, {
   id: "sandbur",
   name: "Sandbur",
-  type: "grass"
+  type: "grass",
+  common: true
 }, {
   id: "bahiagrass",
   name: "Bahiagrass (volunteer)",
@@ -138,15 +141,18 @@ const WEEDS = [{
 }, {
   id: "pigweed",
   name: "Pigweed / Palmer Amaranth",
-  type: "broadleaf"
+  type: "broadleaf",
+  common: true
 }, {
   id: "ragweed",
   name: "Ragweed",
-  type: "broadleaf"
+  type: "broadleaf",
+  common: true
 }, {
   id: "horsenettle",
   name: "Horsenettle",
-  type: "broadleaf"
+  type: "broadleaf",
+  common: true
 }, {
   id: "buttercup",
   name: "Buttercup",
@@ -154,7 +160,8 @@ const WEEDS = [{
 }, {
   id: "thistle",
   name: "Thistle",
-  type: "broadleaf"
+  type: "broadleaf",
+  common: true
 }, {
   id: "cocklebur",
   name: "Cocklebur",
@@ -178,7 +185,8 @@ const WEEDS = [{
 }, {
   id: "dewberry",
   name: "Dewberry / Blackberry",
-  type: "brush"
+  type: "brush",
+  common: true
 }, {
   id: "privet",
   name: "Privet",
@@ -191,11 +199,95 @@ const WEEDS = [{
   id: "pricklypear",
   name: "Prickly Pear",
   type: "brush"
+}, {
+  id: "bitterweed",
+  name: "Bitter Sneezeweed / Bitterweed",
+  type: "broadleaf"
+}, {
+  id: "croton",
+  name: "Woolly Croton / Doveweed / Goatweed",
+  type: "broadleaf"
+}, {
+  id: "silverleafnightshade",
+  name: "Silverleaf Nightshade",
+  type: "broadleaf"
+}, {
+  id: "bullnettle",
+  name: "Texas Bull Nettle",
+  type: "broadleaf"
+}, {
+  id: "broomweed",
+  name: "Broomweed (annual & perennial)",
+  type: "broadleaf"
+}, {
+  id: "marestail",
+  name: "Marestail / Horseweed",
+  type: "broadleaf"
+}, {
+  id: "morningglory",
+  name: "Annual Morningglory / Bindweed",
+  type: "broadleaf"
+}, {
+  id: "coffeesenna",
+  name: "Coffee Senna / Sicklepod",
+  type: "broadleaf"
+}, {
+  id: "goldenrod",
+  name: "Goldenrod",
+  type: "broadleaf"
+}, {
+  id: "henbit",
+  name: "Henbit / Deadnettle",
+  type: "broadleaf"
+}, {
+  id: "chickweed",
+  name: "Common Chickweed",
+  type: "broadleaf"
+}, {
+  id: "rescuegrass",
+  name: "Rescuegrass",
+  type: "grass"
+}, {
+  id: "littlebarley",
+  name: "Little Barley",
+  type: "grass"
+}, {
+  id: "krbluestem",
+  name: "KR / Yellow Bluestem (Old World bluestems)",
+  type: "grass"
+}, {
+  id: "broomsedge",
+  name: "Broomsedge Bluestem",
+  type: "grass"
+}, {
+  id: "signalgrass",
+  name: "Signalgrass",
+  type: "grass"
+}, {
+  id: "chinesetallow",
+  name: "Chinese Tallow (popcorn tree)",
+  type: "brush"
+}, {
+  id: "yaupon",
+  name: "Yaupon",
+  type: "brush"
+}, {
+  id: "redcedar",
+  name: "Eastern Redcedar / Juniper",
+  type: "brush"
+}, {
+  id: "macartneyrose",
+  name: "Macartney Rose",
+  type: "brush"
+}, {
+  id: "huisache",
+  name: "Huisache",
+  type: "brush"
 }];
 
 // grazingRestrictionDays / hayRestrictionDays: null = none on label (beef cattle, general),
 // "varies" = check label / dairy vs beef differ. manureMonths = carryover restriction on
-// treated hay/manure used off-property (relevant since hay is given away here).
+// treated hay/manure moved or sold off-property.
 // formulation/mixCategory drives WALES/DALES tank-mix ordering:
 //   'dry'      = water-dispersible granule / dry flowable — add to water first
 //   'soluble'  = water-soluble liquid (amine/SL) — add after dry products
@@ -206,7 +298,7 @@ const HERBICIDES = [{
   id: "24d",
   name: "2,4-D amine (e.g. Weedar 64)",
   moa: "4 (Synthetic Auxin)",
-  targets: ["pigweed", "ragweed", "cocklebur", "dock", "plantain", "thistle", "horsenettle"],
+  targets: ["pigweed", "ragweed", "cocklebur", "dock", "plantain", "thistle", "horsenettle", "buttercup", "bitterweed", "croton", "marestail", "morningglory", "goldenrod", "henbit"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 16,
@@ -224,7 +316,7 @@ const HERBICIDES = [{
   id: "grazonnext",
   name: "GrazonNext HL (aminopyralid + 2,4-D)",
   moa: "4",
-  targets: ["thistle", "ragweed", "horsenettle", "dewberry", "cocklebur", "dock", "sericea"],
+  targets: ["thistle", "ragweed", "horsenettle", "dewberry", "cocklebur", "dock", "sericea", "buttercup", "plantain", "pigweed", "bitterweed", "croton", "broomweed", "marestail", "morningglory", "goldenrod", "coffeesenna"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 19.2,
@@ -242,7 +334,7 @@ const HERBICIDES = [{
   id: "milestone",
   name: "Milestone (aminopyralid)",
   moa: "4",
-  targets: ["thistle", "ragweed", "dock", "sericea"],
+  targets: ["thistle", "ragweed", "dock", "sericea", "horsenettle", "broomweed", "goldenrod"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 3,
@@ -260,7 +352,7 @@ const HERBICIDES = [{
   id: "pasturegard",
   name: "PastureGard HL (triclopyr + fluroxypyr)",
   moa: "4",
-  targets: ["dewberry", "smilax", "privet", "mesquite", "pricklypear", "horsenettle"],
+  targets: ["dewberry", "smilax", "privet", "mesquite", "macartneyrose", "huisache", "yaupon", "chinesetallow", "horsenettle", "dock"],
   use: ["pasture", "hay"],
   formulation: "ec",
   rateLowOz: 16,
@@ -278,7 +370,7 @@ const HERBICIDES = [{
   id: "remedyultra",
   name: "Remedy Ultra (triclopyr ester)",
   moa: "4",
-  targets: ["smilax", "dewberry", "privet", "mesquite", "pricklypear"],
+  targets: ["smilax", "dewberry", "privet", "mesquite", "macartneyrose", "huisache", "yaupon", "chinesetallow"],
   use: ["pasture", "hay"],
   formulation: "ec",
   rateLowOz: 16,
@@ -290,13 +382,13 @@ const HERBICIDES = [{
   manureMonths: 0,
   waterBufferFt: 100,
   tempWindow: "Full leaf brush, or dormant season for basal bark",
-  notes: "Already in your rotation for smilax. Ester formulation volatilizes in heat — avoid spraying above ~85°F near sensitive trees/gardens.",
+  notes: "A common smilax/greenbrier and brush treatment. Ester formulation volatilizes in heat — avoid spraying above ~85°F near sensitive trees/gardens.",
   restrictedUse: false
 }, {
   id: "pastora",
   name: "Pastora (metsulfuron + nicosulfuron)",
   moa: "2 (ALS inhibitor)",
-  targets: ["johnsongrass", "crabgrass", "pigweed", "ragweed", "horsenettle", "sandbur", "vaseygrass", "bahiagrass", "goosegrass", "barnyardgrass", "texaspanicum", "ryegrass"],
+  targets: ["johnsongrass", "crabgrass", "pigweed", "ragweed", "horsenettle", "sandbur", "vaseygrass", "bahiagrass", "goosegrass", "barnyardgrass", "texaspanicum", "ryegrass", "signalgrass", "rescuegrass"],
   use: ["pasture", "hay"],
   formulation: "dry",
   rateLowOz: 1,
@@ -308,13 +400,13 @@ const HERBICIDES = [{
   manureMonths: 0,
   waterBufferFt: 100,
   tempWindow: "Johnsongrass 12–24\" tall, actively growing",
-  notes: "Already in your rotation. Broader than the label headline suggests: at 1 oz/ac controls barnyardgrass, foxtails, Texas/fall panicum, Italian ryegrass, and suppresses goosegrass and seedling sandbur; at 1.5 oz/ac adds good bahiagrass and vaseygrass control. Don't exceed 2.5 oz/ac per year total. Bermudagrass can yellow/stunt temporarily. For perennial (regrowth) sandbur, the label response improves tank-mixed with glyphosate — see Tank Mix Builder.",
+  notes: "Broader than the label headline suggests: at 1 oz/ac controls barnyardgrass, foxtails, Texas/fall panicum, Italian ryegrass, and suppresses goosegrass and seedling sandbur; at 1.5 oz/ac adds good bahiagrass and vaseygrass control. Don't exceed 2.5 oz/ac per year total. Bermudagrass can yellow/stunt temporarily. For perennial (regrowth) sandbur, the label response improves tank-mixed with glyphosate — see Tank Mix Builder.",
   restrictedUse: false
 }, {
   id: "glyphosate",
   name: "Glyphosate (e.g. Roundup PowerMax)",
   moa: "9 (EPSP synthase inhibitor)",
-  targets: ["dallisgrass", "johnsongrass", "bahiagrass", "ryegrass", "sandbur", "crabgrass", "vaseygrass"],
+  targets: ["dallisgrass", "johnsongrass", "bahiagrass", "ryegrass", "sandbur", "crabgrass", "vaseygrass", "smutgrass", "goosegrass", "barnyardgrass", "texaspanicum", "nutsedge", "krbluestem", "broomsedge", "rescuegrass", "littlebarley", "signalgrass", "chinesetallow"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 12,
@@ -326,13 +418,13 @@ const HERBICIDES = [{
   manureMonths: 0,
   waterBufferFt: 100,
   tempWindow: "Depends on method — see notes; do NOT broadcast on actively growing bermuda",
-  notes: "⚠ Non-selective — this is only \"safe\" for bermuda because of WHEN or HOW you apply it, not the chemical itself: (1) broadcast during full bermudagrass dormancy (roughly Nov–Mar in East Texas) for dallisgrass, johnsongrass, bahiagrass, or ryegrass — dallisgrass has no other reliable postemergence option in bermuda; (2) spot-spray or wick/wiper application onto taller weeds above short bermuda anytime; or (3) a low rate (10–16 fl oz/ac) immediately after a hay cutting, before bermuda regrowth, for sandbur and other annual grasses. Broadcasting onto green, growing bermuda at these rates will injure or kill it. Preventing viable weed seed production is key — timing matters as much as the product.",
+  notes: "⚠ Non-selective — this is only \"safe\" for bermuda because of WHEN or HOW you apply it, not the chemical itself: (1) broadcast during full bermudagrass dormancy (roughly Nov–Mar across the Southeast) for dallisgrass, johnsongrass, bahiagrass, or ryegrass — dallisgrass has no other reliable postemergence option in bermuda; (2) spot-spray or wick/wiper application onto taller weeds above short bermuda anytime; or (3) a low rate (10–16 fl oz/ac) immediately after a hay cutting, before bermuda regrowth, for sandbur and other annual grasses. Broadcasting onto green, growing bermuda at these rates will injure or kill it. Preventing viable weed seed production is key — timing matters as much as the product.",
   restrictedUse: false
 }, {
   id: "imazapic",
   name: "Imazapic (Panoramic 2SL / Impose / Plateau)",
   moa: "2 (ALS inhibitor)",
-  targets: ["vaseygrass", "sandbur", "bahiagrass", "dallisgrass", "smutgrass", "barnyardgrass", "texaspanicum", "goosegrass"],
+  targets: ["vaseygrass", "sandbur", "bahiagrass", "dallisgrass", "smutgrass", "barnyardgrass", "texaspanicum", "goosegrass", "crabgrass", "ryegrass", "broomsedge", "signalgrass", "littlebarley", "rescuegrass", "pigweed", "ragweed"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 4,
@@ -350,7 +442,7 @@ const HERBICIDES = [{
   id: "pendimethalin",
   name: "Pendimethalin (Prowl H2O)",
   moa: "3 (Microtubule inhibitor)",
-  targets: ["crabgrass", "sandbur", "ryegrass"],
+  targets: ["crabgrass", "sandbur", "ryegrass", "goosegrass", "barnyardgrass", "texaspanicum", "signalgrass", "littlebarley", "rescuegrass", "pigweed"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 35.2,
@@ -368,7 +460,7 @@ const HERBICIDES = [{
   id: "indaziflam",
   name: "Indaziflam (Rezilon)",
   moa: "29 (Cellulose biosynthesis inhibitor)",
-  targets: ["sandbur", "crabgrass"],
+  targets: ["sandbur", "crabgrass", "ryegrass", "goosegrass", "rescuegrass", "littlebarley", "signalgrass"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 5,
@@ -386,7 +478,7 @@ const HERBICIDES = [{
   id: "paraquat",
   name: "Paraquat (Gramoxone Inteon/SL)",
   moa: "22 (Photosystem I inhibitor)",
-  targets: ["ryegrass", "crabgrass", "bahiagrass"],
+  targets: ["ryegrass", "crabgrass", "bahiagrass", "goosegrass", "rescuegrass", "littlebarley", "henbit", "chickweed"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 16,
@@ -404,7 +496,7 @@ const HERBICIDES = [{
   id: "cimarronplus",
   name: "Cimarron Plus (metsulfuron + chlorsulfuron)",
   moa: "2 (ALS inhibitor)",
-  targets: ["bahiagrass", "ragweed", "thistle", "horsenettle", "cocklebur", "dock"],
+  targets: ["bahiagrass", "ragweed", "thistle", "horsenettle", "cocklebur", "dock", "plantain", "buttercup", "marestail", "henbit", "broomweed"],
   use: ["pasture", "hay"],
   formulation: "dry",
   rateLowOz: 0.5,
@@ -434,13 +526,13 @@ const HERBICIDES = [{
   manureMonths: 0,
   waterBufferFt: 100,
   tempWindow: "Johnsongrass in boot to early head stage",
-  notes: "Already in your rotation for johnsongrass in hay fields. Same ALS mode of action as Pastora — alternate MOA groups between years to slow resistance.",
+  notes: "A standard for johnsongrass in bermuda hay. Same ALS mode of action as Pastora — alternate MOA groups between years to slow resistance.",
   restrictedUse: false
 }, {
   id: "msma",
   name: "MSMA (e.g. Target 6 Plus)",
   moa: "17 (Organic arsenical)",
-  targets: ["dallisgrass", "crabgrass", "nutsedge"],
+  targets: ["dallisgrass", "crabgrass", "nutsedge", "sandbur", "goosegrass", "signalgrass"],
   use: ["pasture"],
   formulation: "soluble",
   rateLowOz: 32,
@@ -452,7 +544,7 @@ const HERBICIDES = [{
   manureMonths: 0,
   waterBufferFt: 150,
   tempWindow: "Warm, actively growing dallisgrass, ideally above 70°F",
-  notes: "⚠ EPA cancelled most agricultural MSMA registrations years ago with only narrow exceptions remaining (cotton, sod farms, highway ROW, golf courses in some states). Pasture/turf uses have been phased out in most states. Confirm MSMA is still legally labeled for pasture use in Texas before applying. Performs poorly below ~70°F — cold applications underperform without controlling the target weed.",
+  notes: "⚠ EPA cancelled most agricultural MSMA registrations years ago with only narrow exceptions remaining (cotton, sod farms, highway ROW, golf courses in some states). Pasture/turf uses have been phased out in most states. Confirm MSMA is still legally labeled for pasture use in your state before applying. Performs poorly below ~70°F — cold applications underperform without controlling the target weed.",
   restrictedUse: true
 }, {
   id: "sedgehammer",
@@ -476,7 +568,7 @@ const HERBICIDES = [{
   id: "chaparral",
   name: "Chaparral (aminopyralid + metsulfuron)",
   moa: "4 + 2",
-  targets: ["dewberry", "thistle", "ragweed", "horsenettle", "sericea", "buttercup"],
+  targets: ["dewberry", "thistle", "ragweed", "horsenettle", "sericea", "buttercup", "cocklebur", "dock", "plantain", "pigweed", "bahiagrass", "bitterweed", "broomweed", "marestail", "goldenrod"],
   use: ["pasture", "hay"],
   formulation: "dry",
   rateLowOz: 2,
@@ -494,7 +586,7 @@ const HERBICIDES = [{
   id: "surmount",
   name: "Surmount (picloram + fluroxypyr)",
   moa: "4",
-  targets: ["mesquite", "privet", "pricklypear", "dewberry"],
+  targets: ["mesquite", "privet", "pricklypear", "dewberry", "horsenettle", "thistle", "sericea", "macartneyrose", "huisache", "silverleafnightshade"],
   use: ["pasture"],
   formulation: "soluble",
   rateLowOz: 24,
@@ -508,6 +600,182 @@ const HERBICIDES = [{
   tempWindow: "Full leaf-out on brush, warm season",
   notes: "Picloram is a Restricted Use Pesticide in many states and highly soil-persistent — do not use where roots of desirable trees may take it up, and never on hay fields.",
   restrictedUse: true
+}, {
+  id: "dicamba24d",
+  name: "2,4-D + dicamba (e.g. Weedmaster, Brash, Range Star)",
+  moa: "4 (Synthetic Auxin)",
+  targets: ["pigweed", "ragweed", "cocklebur", "dock", "plantain", "thistle", "horsenettle", "buttercup", "bitterweed", "croton", "marestail", "morningglory", "goldenrod", "broomweed"],
+  use: ["pasture", "hay"],
+  formulation: "soluble",
+  rateLowOz: 16, rateHighOz: 64, rateUnit: "fl oz/ac",
+  rate: "16–32 fl oz/ac (annuals) up to 48–64 fl oz/ac (perennials)",
+  grazing: "0 days (7 days lactating dairy)",
+  hay: "7 days before cutting; 37 days green forage for lactating dairy",
+  manureMonths: 0,
+  waterBufferFt: 100,
+  tempWindow: "Above 60°F, broadleaves actively growing, before bloom or bud",
+  notes: "The cheap, broad standby for pasture broadleaves — annual weeds at the low rate, tougher perennials (bitterweed, croton, ironweed, goldenrod) at the high rate. Dicamba is volatile in heat and moves onto gardens, cotton, tomatoes, soybeans, and vineyards — don't spray hot still afternoons near sensitive crops. Almost no effect on woody brush.",
+  restrictedUse: false
+}, {
+  id: "crossbow",
+  name: "2,4-D + triclopyr ester (Crossbow)",
+  moa: "4 (Synthetic Auxin)",
+  targets: ["dewberry", "smilax", "privet", "mesquite", "macartneyrose", "chinesetallow", "thistle", "ragweed", "horsenettle", "dock", "plantain", "buttercup", "cocklebur", "bitterweed", "croton"],
+  use: ["pasture", "hay"],
+  formulation: "ec",
+  rateLowOz: 48, rateHighOz: 128, rateUnit: "fl oz/ac",
+  rate: "1.5–4 qt/ac broadcast (1–1.5 gal per 100 gal spot)",
+  grazing: "0 days for beef; lactating dairy 14 days",
+  hay: "14 days before cutting",
+  manureMonths: 0,
+  waterBufferFt: 100,
+  tempWindow: "Brush and broadleaves in full leaf, actively growing; ester volatilizes above ~80–85°F",
+  notes: "2,4-D + triclopyr ester — a one-pass on blackberry/dewberry, greenbrier, brush seedlings, and a wide range of broadleaves. Ester formulation: volatile and drift-prone in heat, hard on nearby trees, gardens, cotton, and vineyards. Not the choice where a field borders surface water.",
+  restrictedUse: false
+}, {
+  id: "duracor",
+  name: "DuraCor (aminopyralid + florpyrauxifen-benzyl)",
+  moa: "4 (Synthetic Auxin — aminopyralid + arylpicolinate)",
+  targets: ["thistle", "ragweed", "horsenettle", "dewberry", "cocklebur", "dock", "sericea", "buttercup", "plantain", "pigweed", "bitterweed", "croton", "marestail", "morningglory", "goldenrod", "broomweed", "coffeesenna"],
+  use: ["pasture", "hay"],
+  formulation: "soluble",
+  rateLowOz: 12, rateHighOz: 20, rateUnit: "fl oz/ac",
+  rate: "12–20 fl oz/ac",
+  grazing: "No restriction",
+  hay: "No restriction (7 days green chop for lactating dairy)",
+  manureMonths: 18,
+  waterBufferFt: 100,
+  tempWindow: "Spring or fall, weeds small and actively growing",
+  notes: "Corteva's newer flagship broadleaf and light-brush herbicide — broader and lower-rate than GrazonNext HL, and the direction new Corteva pasture programs are heading. Same aminopyralid hay/manure carryover as GrazonNext and Milestone: about 18 months, and treated hay, manure, and compost must not go off-property.",
+  restrictedUse: false
+}, {
+  id: "terravue",
+  name: "TerraVue (aminopyralid + metsulfuron)",
+  moa: "4 + 2 (Synthetic Auxin + ALS inhibitor)",
+  targets: ["thistle", "ragweed", "horsenettle", "dewberry", "cocklebur", "dock", "sericea", "buttercup", "plantain", "pigweed", "bahiagrass", "bitterweed", "croton", "marestail", "goldenrod", "broomweed", "coffeesenna"],
+  use: ["pasture", "hay"],
+  formulation: "dry",
+  rateLowOz: 1, rateHighOz: 2.85, rateUnit: "oz/ac (dry wt.)",
+  rate: "1–2.85 oz/ac + NIS",
+  grazing: "No restriction",
+  hay: "No restriction",
+  manureMonths: 18,
+  waterBufferFt: 100,
+  tempWindow: "Spring, weeds small and actively growing",
+  notes: "Corteva's dry-formulated broadleaf herbicide — the successor to Chaparral, broader spectrum at a lower use rate. Contains a Group 2 (metsulfuron) component: don't tank-mix with Pastora, Outrider, Sedgehammer, or straight metsulfuron. Same aminopyralid hay/manure carryover (~18 months); the metsulfuron's soil residual can hurt a following clover or cool-season grass seeding.",
+  restrictedUse: false
+}, {
+  id: "metsulfuron",
+  name: "Metsulfuron (MSM 60, Escort XP, Patriot)",
+  moa: "2 (ALS inhibitor)",
+  targets: ["bahiagrass", "ragweed", "thistle", "cocklebur", "dock", "plantain", "buttercup", "sericea", "horsenettle", "privet", "henbit", "chickweed", "marestail", "broomweed"],
+  use: ["pasture", "hay"],
+  formulation: "dry",
+  rateLowOz: 0.1, rateHighOz: 1, rateUnit: "oz/ac (dry wt.)",
+  rate: "0.1–1 oz/ac + NIS (~0.3 oz/ac typical)",
+  grazing: "No restriction",
+  hay: "No restriction",
+  manureMonths: 0,
+  waterBufferFt: 100,
+  tempWindow: "Broadleaf and bahiagrass actively growing, spring",
+  notes: "The cheapest broadleaf-and-bahiagrass tool — pennies per acre. Metsulfuron alone is the active in Cimarron Plus, Chaparral, TerraVue, and Cimarron Max. Soil residual can carry over to a following clover, alfalfa, or cool-season grass seeding. Weak on grasses other than bahiagrass. Always add a non-ionic surfactant.",
+  restrictedUse: false
+}, {
+  id: "triclopyramine",
+  name: "Triclopyr amine/choline (Vastlan, Garlon 3A)",
+  moa: "4 (Synthetic Auxin)",
+  targets: ["dewberry", "smilax", "privet", "mesquite", "macartneyrose", "chinesetallow", "yaupon", "horsenettle", "dock"],
+  use: ["pasture", "hay"],
+  formulation: "soluble",
+  rateLowOz: 16, rateHighOz: 96, rateUnit: "fl oz/ac",
+  rate: "2–4 pt/ac foliar broadcast (1–6 pt/ac range)",
+  grazing: "No restriction for beef; lactating dairy 14 days",
+  hay: "14 days before cutting",
+  manureMonths: 0,
+  waterBufferFt: 25,
+  tempWindow: "Actively growing brush, full leaf-out",
+  notes: "The water-based triclopyr — the version to reach for where a field borders a pond, creek, or wetland (Vastlan and Garlon 3A carry aquatic-use labels; confirm on the specific product). Much less volatile than the ester (Remedy Ultra), so safer around gardens and sensitive trees, though a touch less on waxy brush. Good on blackberry/dewberry, greenbrier, and brush seedlings.",
+  restrictedUse: false
+}, {
+  id: "fluroxypyr",
+  name: "Fluroxypyr (Starane Ultra)",
+  moa: "4 (Synthetic Auxin)",
+  targets: ["horsenettle", "dock", "cocklebur", "ragweed", "dewberry", "thistle", "morningglory", "marestail", "broomweed"],
+  use: ["pasture", "hay"],
+  formulation: "ec",
+  rateLowOz: 6.4, rateHighOz: 20.8, rateUnit: "fl oz/ac",
+  rate: "0.4–1.3 pt/ac (6.4–20.8 fl oz/ac)",
+  grazing: "0 days",
+  hay: "7 days before cutting",
+  manureMonths: 0,
+  waterBufferFt: 100,
+  tempWindow: "Broadleaves actively growing, before bloom",
+  notes: "Fluroxypyr — the active in PastureGard HL and Surmount, sold alone as Starane Ultra. Particularly good on horsenettle, curly and broadleaf dock, morningglory, and marestail, with no soil residual and no aminopyralid-style carryover, so treated hay and manure are clean. Usually tank-mixed with 2,4-D or dicamba to widen the spectrum.",
+  restrictedUse: false
+}, {
+  id: "quinclorac",
+  name: "Quinclorac (Facet L)",
+  moa: "4 (Synthetic Auxin — quinoline carboxylic acid)",
+  targets: ["crabgrass", "barnyardgrass", "sandbur", "signalgrass", "texaspanicum", "morningglory"],
+  use: ["pasture", "hay"],
+  formulation: "soluble",
+  rateLowOz: 21, rateHighOz: 32, rateUnit: "fl oz/ac",
+  rate: "21–32 fl oz/ac + MSO adjuvant",
+  grazing: "No restriction",
+  hay: "No restriction",
+  manureMonths: 12,
+  waterBufferFt: 100,
+  tempWindow: "Grass weeds small (1–4 leaf), warm and actively growing; needs MSO/COC",
+  notes: "One of the few postemergence options for crabgrass, foxtails, and signalgrass in established bermuda, plus field bindweed and morningglory. Needs a methylated seed oil adjuvant. Carryover caution like aminopyralid — quinclorac residue in treated hay, and the manure or compost from animals fed it, can damage tomatoes, beans, and other sensitive crops for a year or more. Keep that hay and manure on the place.",
+  restrictedUse: false
+}, {
+  id: "grazonpd",
+  name: "Grazon P+D (picloram + 2,4-D)",
+  moa: "4 (Synthetic Auxin)",
+  targets: ["thistle", "ragweed", "horsenettle", "cocklebur", "dock", "dewberry", "mesquite", "privet", "sericea", "buttercup", "pricklypear", "macartneyrose", "huisache", "silverleafnightshade", "bitterweed", "broomweed", "goldenrod"],
+  use: ["pasture", "hay"],
+  formulation: "soluble",
+  rateLowOz: 32, rateHighOz: 128, rateUnit: "fl oz/ac",
+  rate: "2–8 pt/ac (2–4 pt broadleaf, higher for brush)",
+  grazing: "No restriction (beef); lactating dairy 7 days",
+  hay: "14 days before cutting; treated hay/manure carries picloram",
+  manureMonths: 18,
+  waterBufferFt: 100,
+  tempWindow: "Weeds and brush actively growing, warm season",
+  notes: "The old picloram + 2,4-D brush-and-broadleaf standby. Restricted-use in most states (picloram). Highly soil-mobile and persistent — don't use where desirable tree roots reach the treated ground, and picloram carryover in hay, manure, and compost lasts a long time (treat it like aminopyralid: 18+ months, keep it on the place). DuraCor or GrazonNext do most of the same broadleaf work without the RUP status.",
+  restrictedUse: true
+}, {
+  id: "picloram",
+  name: "Picloram (Tordon 22K)",
+  moa: "4 (Synthetic Auxin)",
+  targets: ["mesquite", "privet", "pricklypear", "dewberry", "thistle", "horsenettle", "sericea", "dock", "ragweed", "macartneyrose", "huisache", "silverleafnightshade", "yaupon", "broomweed"],
+  use: ["pasture"],
+  formulation: "soluble",
+  rateLowOz: 16, rateHighOz: 64, rateUnit: "fl oz/ac",
+  rate: "1–4 pt/ac broadcast (higher, or basal/cut-stump, for brush)",
+  grazing: "No restriction (beef)",
+  hay: "Do not cut for hay",
+  manureMonths: 24,
+  waterBufferFt: 100,
+  tempWindow: "Brush and perennials actively growing, spring–summer",
+  notes: "Straight picloram — restricted-use, one of the most soil-persistent and mobile herbicides used in pasture. It moves downhill through soil and kills trees and shrubs whose roots reach treated ground, and it stays active in hay, manure, and compost for two years or more. Reserve it for brush and perennials nothing else touches, and never on ground that drains toward a garden, orchard, or a neighbor's field.",
+  restrictedUse: true
+}, {
+  id: "24db",
+  name: "2,4-DB (Butyrac 200)",
+  moa: "4 (Synthetic Auxin)",
+  targets: ["pigweed", "ragweed", "cocklebur", "coffeesenna", "morningglory"],
+  use: ["pasture", "hay"],
+  formulation: "soluble",
+  rateLowOz: 32, rateHighOz: 96, rateUnit: "fl oz/ac",
+  rate: "1–3 qt/ac",
+  grazing: "30 days",
+  hay: "30 days before cutting",
+  manureMonths: 0,
+  waterBufferFt: 100,
+  tempWindow: "Young annual broadleaves; clover past the seedling stage",
+  notes: "The broadleaf herbicide for a mixed grass–clover or grass–alfalfa stand — 2,4-DB is converted to 2,4-D by susceptible weeds but tolerated by established legumes, so you can clean up pigweed and ragweed without killing the clover. Weaker and slower than straight 2,4-D; go while weeds are small. 30-day grazing and hay interval.",
+  restrictedUse: false
 }];
 const SOIL_TYPES = ["Sandy", "Sandy Loam", "Loam", "Clay Loam", "Clay", "Bottomland / Poorly Drained"];
 const GRASS_TYPES = ["Common Bermudagrass", "Hybrid Bermudagrass (e.g. Tifton 85)", "Bahiagrass", "Bermuda/Bahia Mix", "Native/Unimproved"];
@@ -585,7 +853,7 @@ async function fetchOpenMeteo(lat, lon) {
     latitude: lat,
     longitude: lon,
     current: "temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,wind_gusts_10m,wind_direction_10m,is_day",
-    hourly: "precipitation,precipitation_probability",
+    hourly: "precipitation,precipitation_probability,wind_speed_10m,wind_gusts_10m,wind_direction_10m,temperature_2m,relative_humidity_2m,is_day",
     daily: "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max",
     temperature_unit: "fahrenheit",
     wind_speed_unit: "mph",
@@ -661,11 +929,51 @@ function buildSprayWeather(place, raw) {
     });
   }
 
+  // ---- hourly spray-window: rate the next ~30 daylight-ish hours
+  const hWind = hourly.wind_speed_10m || [];
+  const hGust = hourly.wind_gusts_10m || [];
+  const hTemp = hourly.temperature_2m || [];
+  const hRh = hourly.relative_humidity_2m || [];
+  const hDay = hourly.is_day || [];
+  const hDir = hourly.wind_direction_10m || [];
+  const hourlyWindow = [];
+  for (let i = 0; i < hTimes.length && hourlyWindow.length < 33; i++) {
+    const ms = new Date(hTimes[i]).getTime();
+    if (ms < nowMs - 3600000) continue;
+    const w = hWind[i], t = hTemp[i], rhh = hRh[i], pr = hRain[i] || 0, prob = hProb[i] || 0;
+    const dt = deltaT_C(t, rhh);
+    const day = hDay[i] === 1;
+    let rating, reason;
+    if (pr >= 0.02 || prob >= 55) { rating = "rain"; reason = `${prob}% rain`; }
+    else if (w != null && w > 15) { rating = "poor"; reason = `wind ${Math.round(w)} mph`; }
+    else if (w != null && w >= 10) { rating = "caution"; reason = `wind ${Math.round(w)} mph`; }
+    else if (w != null && w < 2) { rating = "caution"; reason = day ? "dead calm — inversion risk" : "calm & dark"; }
+    else if (dt != null && dt > 11) { rating = "caution"; reason = `Delta-T ${dt}`; }
+    else if (t != null && t > 92) { rating = "caution"; reason = `${Math.round(t)}°F`; }
+    else if (t != null && t < 50) { rating = "caution"; reason = `${Math.round(t)}°F`; }
+    else if (!day) { rating = "caution"; reason = "after dark"; }
+    else { rating = "good"; reason = `${w != null ? Math.round(w) + " mph" : ""}${dt != null ? ", Δt " + dt : ""}`.replace(/^, /, ""); }
+    hourlyWindow.push({
+      ms, label: hTimes[i].slice(11, 16), day,
+      windMph: w != null ? Math.round(w) : null, gustMph: hGust[i] != null ? Math.round(hGust[i]) : null,
+      dirCard: hDir[i] != null ? windCardinal(hDir[i]) : null,
+      tempF: t != null ? Math.round(t) : null, rh: rhh != null ? Math.round(rhh) : null,
+      deltaT: dt, rainProb: prob, rating, reason
+    });
+  }
+  // best contiguous run of "good" hours
+  let bestRun = null, run = null;
+  hourlyWindow.forEach(hw => {
+    if (hw.rating === "good") { run = run || { start: hw, end: hw, len: 0 }; run.end = hw; run.len++; }
+    else { if (run && (!bestRun || run.len > bestRun.len)) bestRun = run; run = null; }
+  });
+  if (run && (!bestRun || run.len > bestRun.len)) bestRun = run;
+
   // ---- spray-timing flags (drift / evaporation / rainfastness / temperature)
   const flags = [];
   if (windMph != null) {
     if (windMph > 15)
-      flags.push({ level: "danger", text: `Wind ${Math.round(windMph)} mph${gustMph ? `, gusting ${Math.round(gustMph)}` : ""} — over the ~10–15 mph ceiling on most labels. High drift risk, especially toward the lake. Wait for a calmer window.` });
+      flags.push({ level: "danger", text: `Wind ${Math.round(windMph)} mph${gustMph ? `, gusting ${Math.round(gustMph)}` : ""} — over the ~10–15 mph ceiling on most labels. High drift risk toward surface water and sensitive crops. Wait for a calmer window.` });
     else if (windMph >= 10)
       flags.push({ level: "warn", text: `Wind ${Math.round(windMph)} mph out of the ${windCardinal(cur.wind_direction_10m)} — near the upper limit. OK for coarse droplets away from sensitive areas; hold off near water, gardens, or tree lines.` });
     else if (windMph < 3)
@@ -680,7 +988,7 @@ function buildSprayWeather(place, raw) {
     else flags.push({ level: "info", text: `Delta-T ${dT} — in the ideal 2–8 range for spray retention.` });
   }
   if (hoursToRain != null) {
-    if (hoursToRain <= 6) flags.push({ level: "danger", text: `Rain likely in about ${hoursToRain} hr — most products need at least 4–6 rain-free hours (some 24). Wash-off and runoff to the lake are the likely result today.` });
+    if (hoursToRain <= 6) flags.push({ level: "danger", text: `Rain likely in about ${hoursToRain} hr — most products need at least 4–6 rain-free hours (some 24). Wash-off and runoff to surface water are the likely result today.` });
     else if (hoursToRain <= 24) flags.push({ level: "warn", text: `Rain likely in about ${hoursToRain} hr — fine for fast-drying products, risky for anything needing a 24-hour rain-free window. Check the label before you mix.` });
   }
   if (tempF != null) {
@@ -699,8 +1007,27 @@ function buildSprayWeather(place, raw) {
     rain14,
     hoursToRain,
     forecast,
+    hourlyWindow,
+    bestRun: bestRun ? { startMs: bestRun.start.ms, endMs: bestRun.end.ms + 3600000, len: bestRun.len } : null,
     flags
   };
+}
+
+function fmtHr(ms) {
+  const h = new Date(ms).getHours();
+  return ((h % 12) || 12) + (h < 12 ? " AM" : " PM");
+}
+// "7 AM" style, with a day tag when it's not today
+function fmtHourMs(ms) {
+  const d = new Date(ms);
+  const today = new Date();
+  const sameDay = d.toDateString() === today.toDateString();
+  const tomorrow = new Date(today.getTime() + 86400000).toDateString() === d.toDateString();
+  return (sameDay ? "" : tomorrow ? "tomorrow " : d.toLocaleDateString([], { weekday: "short" }) + " ") + fmtHr(ms);
+}
+function fmtTick(ms) {
+  const h = new Date(ms).getHours();
+  return h === 0 ? "12a" : h < 12 ? h + "a" : h === 12 ? "12p" : (h - 12) + "p";
 }
 
 async function getSprayWeather(zip) {
@@ -782,7 +1109,7 @@ function computeRecommendations({
     if (nearWater && distToWater < h.waterBufferFt) {
       flags.push({
         level: "danger",
-        text: `Water buffer: label calls for ~${h.waterBufferFt} ft from water; this field's profile has ${distToWater} ft to the lake/pond.`
+        text: `Water buffer: label calls for ~${h.waterBufferFt} ft from water; this field's profile has ${distToWater} ft to the nearest pond, creek, or lake.`
       });
     }
     if (recentMoaGroups.filter(m => m === h.moa).length >= 2) {
@@ -806,7 +1133,7 @@ function computeRecommendations({
     if (rainExpected) {
       flags.push({
         level: "warn",
-        text: "Rain expected — most of these products want 4–6 hrs (some 24 hrs) rain-free after application to avoid wash-off and runoff to the lake."
+        text: "Rain expected — most of these products want 4–6 hrs (some 24 hrs) rain-free after application to avoid wash-off and runoff to surface water."
       });
     }
     if (daysSinceRain !== "" && Number(daysSinceRain) > 21) {
@@ -999,7 +1326,7 @@ const INSECTICIDES = [
     id: "methoxyfenozide",
     name: "Methoxyfenozide (Intrepid 2F)",
     iracGroup: "18 (Molting accelerator / IGR)",
-    targets: ["fallarmyworm", "truearmyworm"],
+    targets: ["fallarmyworm", "truearmyworm", "cutworm"],
     use: ["pasture", "hay"],
     formulation: "soluble",
     rateLowOz: 4, rateHighOz: 8, rateUnit: "fl oz/ac",
@@ -1027,7 +1354,7 @@ const INSECTICIDES = [
     id: "lambdacy",
     name: "Lambda-cyhalothrin (Warrior II / Karate)",
     iracGroup: "3A (Pyrethroid)",
-    targets: ["fallarmyworm", "truearmyworm", "cutworm", "grasshopper", "aphid", "spittlebug", "blisterbeetle"],
+    targets: ["fallarmyworm", "truearmyworm", "cutworm", "grasshopper", "aphid", "spittlebug", "blisterbeetle", "stemmaggot"],
     use: ["pasture", "hay"],
     formulation: "ec",
     rateLowOz: 1.28, rateHighOz: 1.92, rateUnit: "fl oz/ac (Warrior II)",
@@ -1035,13 +1362,13 @@ const INSECTICIDES = [
     grazing: "0 days", hay: "7 days", rei: 24,
     waterBufferFt: 150, beeTox: "high", restrictedUse: true,
     timingWindow: "Fast knockdown, short residual (3–7 days). Loses punch above ~90°F.",
-    notes: "Cheap, broad, fast — but fall armyworm has documented pyrethroid resistance in parts of the South, so it can underperform on a heavy worm flight. No grazing wait, but hold cutting for hay 7 days (per the Warrior II label — a 0-day hay wait is a common mix-up with the grazing interval). Restricted-use, highly toxic to bees and to fish/aquatic life (150 ft buffer near your lake). Better suited to grasshoppers, beetles, and aphids than to armyworms.",
+    notes: "Cheap, broad, fast — but fall armyworm has documented pyrethroid resistance in parts of the South, so it can underperform on a heavy worm flight. No grazing wait, but hold cutting for hay 7 days (per the Warrior II label — a 0-day hay wait is a common mix-up with the grazing interval). Restricted-use, highly toxic to bees and to fish/aquatic life (150 ft buffer from ponds and creeks). Better suited to grasshoppers, beetles, and aphids than to armyworms.",
   },
   {
     id: "zetacypermethrin",
     name: "Zeta-cypermethrin (Mustang Maxx)",
     iracGroup: "3A (Pyrethroid)",
-    targets: ["fallarmyworm", "truearmyworm", "grasshopper", "spittlebug", "blisterbeetle", "aphid"],
+    targets: ["fallarmyworm", "truearmyworm", "cutworm", "grasshopper", "spittlebug", "blisterbeetle", "aphid", "stemmaggot"],
     use: ["pasture", "hay"],
     formulation: "ec",
     rateLowOz: 3.2, rateHighOz: 4, rateUnit: "fl oz/ac",
@@ -1055,7 +1382,7 @@ const INSECTICIDES = [
     id: "bifenthrin",
     name: "Bifenthrin (Brigade 2EC / Sniper)",
     iracGroup: "3A (Pyrethroid)",
-    targets: ["grasshopper", "spittlebug", "blisterbeetle", "stemmaggot"],
+    targets: ["grasshopper", "spittlebug", "blisterbeetle", "stemmaggot", "cutworm", "fallarmyworm"],
     use: ["pasture", "hay"],
     formulation: "ec",
     rateLowOz: 2.1, rateHighOz: 6.4, rateUnit: "fl oz/ac",
@@ -1063,13 +1390,13 @@ const INSECTICIDES = [
     grazing: "0 days (check label by rate)", hay: "0–30 days by rate", rei: 12,
     waterBufferFt: 150, beeTox: "high", restrictedUse: true,
     timingWindow: "Longer residual than other pyrethroids — useful for stem maggot suppression at a hay cutting.",
-    notes: "The pyrethroid most used for bermudagrass stem maggot: spray 7–10 days after a cutting as regrowth greens up, sometimes a second time. Also strong on grasshoppers and spittlebug. Restricted-use, very fish-toxic — mind the lake.",
+    notes: "The pyrethroid most used for bermudagrass stem maggot: spray 7–10 days after a cutting as regrowth greens up, sometimes a second time. Also strong on grasshoppers and spittlebug. Restricted-use, very fish-toxic — keep it well back from ponds and creeks.",
   },
   {
     id: "carbaryl",
     name: "Carbaryl (Sevin XLR Plus)",
     iracGroup: "1A (Carbamate)",
-    targets: ["grasshopper", "blisterbeetle", "spittlebug", "cutworm"],
+    targets: ["grasshopper", "blisterbeetle", "spittlebug", "cutworm", "fallarmyworm"],
     use: ["pasture", "hay"],
     formulation: "soluble",
     rateLowOz: 32, rateHighOz: 48, rateUnit: "fl oz/ac",
@@ -1135,12 +1462,26 @@ const INSECTICIDES = [
     timingWindow: "Warm, dry ground (75–90°F), ants actively foraging, no rain for 24–48 hr, bait fresh.",
     notes: "This is a BAIT, not a spread-and-forget spray — broadcast with a hand or ATV spreader, or spoon onto mounds. Extinguish Plus (methoprene + hydramethylnon) is cleared for pasture and hayfields with no grazing restriction for beef/companion animals, but the label does require a 7-day wait before baling or cutting hay. Cap is 8 lb/ac/yr, max 4 applications/yr, minimum 90 days between treatments. Spring and fall are the effective windows; results take a few weeks. Don't water it in or spread within 6 hrs of rain — wet bait gets ignored. Amdro Pro is a different, hydramethylnon-only formulation with its own label — check its specific PHI separately rather than assuming it matches Extinguish Plus.",
   },
+  {
+    id: "besiege",
+    name: "Besiege (lambda-cyhalothrin + chlorantraniliprole)",
+    iracGroup: "3A + 28 (Pyrethroid + Diamide)",
+    targets: ["fallarmyworm", "truearmyworm", "cutworm", "grasshopper", "aphid", "spittlebug", "blisterbeetle"],
+    use: ["pasture", "hay"],
+    formulation: "ec",
+    rateLowOz: 5, rateHighOz: 10, rateUnit: "fl oz/ac",
+    rate: "5–10 fl oz/ac",
+    grazing: "0 days", hay: "0 days", rei: 24,
+    waterBufferFt: 150, beeTox: "high", restrictedUse: true,
+    timingWindow: "Small larvae — the pyrethroid gives knockdown, the diamide adds 2–3 weeks of residual. One pass.",
+    notes: "A pre-mix of a pyrethroid (fast knockdown, plus drift, fish, and bee cautions) and chlorantraniliprole (the diamide residual). Convenient for a mixed pest problem, but every spray commits you to both chemistries — worse for resistance stewardship than rotating them separately — and it carries the pyrethroid's restricted-use status, 150-ft aquatic buffer, and high bee toxicity.",
+  },
 ];
 
 // Pests whose control hinges on a growth stage or season more than on the
 // weed/soil inputs — these get an automatic timing note (mirrors TIMING_RULES).
 const PEST_SEASON = {
-  fallarmyworm: { months: ["July", "August", "September", "October"], note: "fall armyworm flights run mid-summer into fall in East Texas — scout new growth and fields after a cutting" },
+  fallarmyworm: { months: ["July", "August", "September", "October"], note: "fall armyworm flights run mid-summer into fall across the Southeast — scout new growth and fields after a cutting" },
   truearmyworm: { months: ["April", "May", "June", "September"], note: "true armyworm is a spring/early-summer and again early-fall pest" },
   stemmaggot: { months: ["July", "August", "September"], note: "stem maggot damage shows up in mid to late summer on regrowth after a cutting" },
   aphid: { months: ["March", "April", "May", "September", "October", "November"], note: "aphids build in the cooler shoulder seasons, not the heat of summer" },
@@ -1259,6 +1600,18 @@ const PRODUCT_LABEL_DATA = {
   "sedgehammer":    { annualMaxOz: null, epaReg: "81880-1-10163" },
   "chaparral":      { annualMaxOz: 3.3,  epaReg: "62719-590" },
   "surmount":       { annualMaxOz: null, epaReg: "62719-484" },
+  "dicamba24d":     { annualMaxOz: null, epaReg: "", epaNote: "brand-specific (Weedmaster = 71368-34, Brash = 228-393)" },
+  "crossbow":       { annualMaxOz: null, epaReg: "62719-260" },
+  "duracor":        { annualMaxOz: 20,   epaReg: "62719-731" },
+  "terravue":       { annualMaxOz: 2.85, epaReg: "62719-737" },
+  "metsulfuron":    { annualMaxOz: 1,    epaReg: "", epaNote: "brand-specific (MSM 60 = 81880-1, Escort XP = 432-1549)" },
+  "triclopyramine": { annualMaxOz: null, epaReg: "", epaNote: "Vastlan = 62719-687, Garlon 3A = 62719-40" },
+  "fluroxypyr":     { annualMaxOz: null, epaReg: "62719-573" },
+  "quinclorac":     { annualMaxOz: 64,   epaReg: "7969-183" },
+  "grazonpd":       { annualMaxOz: null, epaReg: "62719-181" },
+  "picloram":       { annualMaxOz: null, epaReg: "62719-6" },
+  "24db":           { annualMaxOz: null, epaReg: "", epaNote: "brand-specific (Butyrac 200 = 71368-4)" },
+  "besiege":        { annualMaxOz: null, epaReg: "100-1402" },
   "chlorantraniliprole": { annualMaxOz: 57, epaReg: "352-844" },
   "methoxyfenozide":     { annualMaxOz: 16, epaReg: "62719-442" },
   "spinosad":            { annualMaxOz: null, epaReg: "62719-524" },
@@ -1418,7 +1771,7 @@ function printSprayRecord(rows, title) {
   <table><thead><tr>
     <th>Date</th><th>Field / location</th><th>Acres</th><th>Product</th><th>EPA Reg. No.</th><th>Rate</th><th>Target pest</th><th>Applicator</th><th>Wind / temp</th>
   </tr></thead><tbody>${body}</tbody></table>
-  <div class="foot">Verify EPA registration numbers against the container. Texas requires restricted-use pesticide records be kept for 2 years. Blank applicator / condition fields can be completed by hand.</div>
+  <div class="foot">Verify EPA registration numbers against the container. Federal rules require restricted-use pesticide records be kept for 2 years; some states require longer. Blank applicator / condition fields can be completed by hand.</div>
   </body></html>`);
   w.document.close();
   w.focus();
@@ -1477,10 +1830,10 @@ function computePestControl({ pests, useType, nearWater, distToWater, applicatio
 
     const flags = [];
     if (nearWater && distToWater < p.waterBufferFt) {
-      flags.push({ level: "danger", text: `Water buffer: this product's label calls for ~${p.waterBufferFt} ft from water and it's toxic to aquatic life; this field's profile has ${distToWater} ft to the lake/pond.` });
+      flags.push({ level: "danger", text: `Water buffer: this product's label calls for ~${p.waterBufferFt} ft from water and it's toxic to aquatic life; this field's profile has ${distToWater} ft to the nearest pond, creek, or lake.` });
     }
     if (windMph != null && windMph > 10) {
-      flags.push({ level: windMph > 15 ? "danger" : "warn", text: `Wind is ${Math.round(windMph)} mph right now — insecticide drift onto the lake, gardens, or a neighbor's bees is the risk. Spray under 10 mph.` });
+      flags.push({ level: windMph > 15 ? "danger" : "warn", text: `Wind is ${Math.round(windMph)} mph right now — insecticide drift onto surface water, gardens, or a neighbor's bees is the risk. Spray under 10 mph.` });
     }
     if (recentGroups.filter(g => g === p.iracGroup).length >= 2) {
       flags.push({ level: "warn", text: `IRAC group ${p.iracGroup} shows up in ${recentGroups.filter(g => g === p.iracGroup).length} of this field's last 4 logged sprays — rotate to a different group. (Note: all pyrethroids are group 3A — switching brands isn't rotating.)` });
@@ -1565,7 +1918,7 @@ const FERT_NUTRIENTS = [
   { id: "p", label: "Phosphorus (P₂O₅)", blurb: "Root and stand establishment. Bermuda needs little once established; soil test before spending on it." },
   { id: "k", label: "Potassium (K₂O)", blurb: "Stand persistence and winter-hardiness. Hay fields mine it out fast — the one most often short." },
   { id: "lime", label: "Lime (raise pH)", blurb: "Below pH ~5.5, applied N and K work far less efficiently. Lime is slow — plan 6+ months ahead." },
-  { id: "s", label: "Sulfur (S)", blurb: "Sandy East-Texas soils low in organic matter are often S-short; shows as pale yellowing that N won't fix." },
+  { id: "s", label: "Sulfur (S)", blurb: "Sandy soils low in organic matter are often S-short; shows as pale yellowing that N won't fix." },
 ];
 
 // N starting rates (lb N/ac) by forage use and management intensity. Deliberately
@@ -1586,8 +1939,12 @@ const FERT_PRODUCTS = [
   { id: "sop", name: "Sulfate of potash", analysis: "0-0-50-18S", form: "dry", kPct: 50, sPct: 18, note: "K plus sulfur, lower salt index than muriate — costs more." },
   { id: "aglime", name: "Ag lime (ground)", analysis: "pH", form: "dry", note: "Cheapest way to raise pH; needs 6+ months and ideally incorporation, which you can't do in established sod — so plan ahead and be patient." },
   { id: "pellime", name: "Pelletized lime", analysis: "pH", form: "dry", note: "Spreads through fertilizer equipment and acts a little faster than ground lime, at a higher price per unit of neutralizing value." },
+  { id: "tsp", name: "Triple superphosphate", analysis: "0-46-0", form: "dry", pPct: 46, note: "Dry straight phosphate with no nitrogen — the P source when you don't want the extra N that comes with DAP or MAP." },
   { id: "blend171717", name: "Complete blend", analysis: "17-17-17", form: "dry", blend: true, nPct: 17, pPct: 17, kPct: 17, note: "A balanced starting blend when a soil test shows all three low; usually cheaper to buy N, P, K separately once you know the real ratio." },
   { id: "blend15515", name: "Hay blend", analysis: "15-5-15 (typical)", form: "dry", blend: true, nPct: 15, pPct: 5, kPct: 15, note: "Roughly matches what a ton of bermuda hay removes — a reasonable custom blend spec for a maintenance hay-field application." },
+  { id: "poultrylitter", name: "Broiler / poultry litter", analysis: "~3-3-3 (test your source)", form: "dry", blend: true, litter: true, nPct: 1.7, pPct: 2.8, kPct: 2.5, sPct: 0.5, note: "The dominant organic fertility source across the Southeast — cheap where it's local, and it builds organic matter. Book value is roughly 55–65 lb total N, 55–60 lb P₂O₅, and 45–55 lb K₂O per ton, but only about half the N is available the first year and every load is different, so a litter analysis is worth it. It's P-heavy relative to what grass removes, so repeated use runs soil-test P up — watch it near ponds and creeks." },
+  { id: "boron", name: "Boron (Solubor / borate)", analysis: "20% B (Solubor)", form: "both", note: "Bermuda hay pulls ~0.3–0.5 lb B/ton; sandy, low-organic-matter soils run short. ~1–2 lb actual B/ac/yr, or 5–10 lb Solubor. Boron's margin between deficient and toxic is narrow — never exceed the label rate, and don't band it." },
+  { id: "gypsum", name: "Gypsum (calcium sulfate)", analysis: "~17% Ca, ~13% S", form: "dry", sPct: 13, note: "Supplies sulfur and calcium without changing pH — the S source for fields that already test at a good pH and don't need lime. Also loosens tight, sodium-affected bottomland soils. Not a liming material." },
 ];
 
 function lbToTons(lb) { return Math.round((lb / 2000) * 100) / 100; }
@@ -1633,7 +1990,7 @@ function computeFertilizerPlan({ needs, soilTest, forage, yieldGoalTons, useType
       flags.push({ level: "warn", text: `Currently ${Math.round(tF)}°F with no rain in the forecast window — broadcast urea can lose 15–30% of its N to the air over a few days. Use ammonium sulfate, treat the urea with a urease inhibitor (NBPT / Agrotain), or wait to spread right before rain.` });
     }
     if (isDormant) {
-      flags.push({ level: "warn", text: `Bermuda/bahia is dormant in ${month} — nitrogen now mostly feeds winter annual weeds (ryegrass, chickweed, henbit). Hold N until ~100% green-up, usually April in East Texas.` });
+      flags.push({ level: "warn", text: `Bermuda/bahia is dormant in ${month} — nitrogen now mostly feeds winter annual weeds (ryegrass, chickweed, henbit). Hold N until ~100% green-up, usually March–April across the Southeast.` });
     }
     if (["September", "October"].includes(month)) {
       flags.push({ level: "warn", text: "Nitrogen after about September 1 pushes tender growth that winter-kills, and can worsen winter weed pressure. A light late application is only worth it if you're stockpiling for winter grazing." });
@@ -1668,7 +2025,7 @@ function computeFertilizerPlan({ needs, soilTest, forage, yieldGoalTons, useType
       recs.push({ nutrient: "P₂O₅", perAcre: 0, unit: "lb P₂O₅/ac/yr", basis });
     }
     if (nearWater) {
-      flags.push({ level: "warn", text: `Phosphorus is the nutrient that drives pond and lake algae/weed blooms. Keep P fertilizer back from the shoreline (${distToWater ? distToWater + " ft is this field's water setback" : "at least 50–100 ft"}), and never spread it right before a heavy rain — ${hoursToRain != null ? `rain is ~${hoursToRain} hr out right now` : "check the forecast first"}.` });
+      flags.push({ level: "warn", text: `Phosphorus is the nutrient that drives pond and lake algae/weed blooms. Keep P fertilizer back from the water's edge (${distToWater ? distToWater + " ft is this field's water setback" : "at least 50–100 ft"}), and never spread it right before a heavy rain — ${hoursToRain != null ? `rain is ~${hoursToRain} hr out right now` : "check the forecast first"}.` });
     }
   }
 
@@ -1719,13 +2076,13 @@ function computeFertilizerPlan({ needs, soilTest, forage, yieldGoalTons, useType
 
   // ---------- General flags ----------
   if (nearWater && want.n) {
-    flags.push({ level: "warn", text: `Nitrogen runoff and leaching reach the lake too, especially on sandy ground. Split applications (never more than ~60–70 lb N/ac at once), skip a buffer strip along the shoreline, and don't spread with heavy rain in the forecast${hoursToRain != null ? ` — currently ~${hoursToRain} hr out` : ""}.` });
+    flags.push({ level: "warn", text: `Nitrogen runs off and leaches toward surface water too, especially on sandy ground. Split applications (never more than ~60–70 lb N/ac at once), skip a buffer strip along the water's edge, and don't spread with heavy rain in the forecast${hoursToRain != null ? ` — currently ~${hoursToRain} hr out` : ""}.` });
   }
   if (use === "hay") {
-    flags.push({ level: "info", text: "Every ton of bermuda hay hauled off takes roughly 50 lb N, 15 lb P₂O₅, and 42 lb K₂O with it (Texas A&M AgriLife Overton figures) — potassium is the one hay fields mine out first, since it's the nutrient most easily and quickly depleted by continuous cutting. A soil test every 2–3 years keeps the stand from thinning." });
+    flags.push({ level: "info", text: "Every ton of bermuda hay hauled off takes roughly 50 lb N, 15 lb P₂O₅, and 42 lb K₂O with it (land-grant extension figures) — potassium is the one hay fields mine out first, since it's the nutrient most easily and quickly depleted by continuous cutting. A soil test every 2–3 years keeps the stand from thinning." });
   }
   if (!st) {
-    flags.push({ level: "info", text: "These are starting rates from forage type and yield goal only. A routine soil test (~$15–20 through Texas A&M AgriLife) pays for itself the first year by right-sizing P, K, and lime instead of guessing." });
+    flags.push({ level: "info", text: "These are starting rates from forage type and yield goal only. A routine soil test (~$15–25 through your state's land-grant lab) pays for itself the first year by right-sizing P, K, and lime instead of guessing." });
   }
   const macroCount = [want.n, want.p, want.k].filter(Boolean).length;
   if (macroCount >= 2) {
@@ -1734,6 +2091,12 @@ function computeFertilizerPlan({ needs, soilTest, forage, yieldGoalTons, useType
     const kk = recs.find(r => r.nutrient === "K₂O");
     const ratio = [nn ? nn.perAcre : 0, pp ? pp.perAcre : 0, kk ? kk.perAcre : 0];
     flags.push({ level: "info", text: `Since you need ${macroCount} of the three, a custom dry blend near ${ratio.join("-")} (lb/ac/yr of N-P₂O₅-K₂O) is one spreader pass instead of three separate materials. Your co-op can mix to spec — the straight-product amounts above are the cross-check.` });
+  }
+  if (want.n || want.p || want.k) {
+    const nn = recs.find(r => r.nutrient === "N");
+    const nNeed = nn && nn.perAcre ? nn.perAcre : (use === "hay" ? 200 : 120);
+    const litterTons = Math.round((nNeed / 32) * 10) / 10; // ~32 lb available N per ton, year 1
+    flags.push({ level: "info", text: `Organic option: about ${litterTons} tons/ac of broiler/poultry litter would cover roughly this year's nitrogen (~55–65 lb total N/ton, ~half available year 1) and, at that rate, most or all of the P and K too. Litter is P-heavy relative to grass removal, so lean on a soil test and keep it well back from ponds and creeks. Test the load — every source is different.` });
   }
 
   return { recs, products, flags, yieldGoal: yg, useType: use };
@@ -2543,6 +2906,36 @@ function WeatherFlags({ flags }) {
   ));
 }
 
+const WINDOW_COLOR = { good: "#7BAE6B", caution: "#E0B44B", poor: "#C77B6A", rain: "#7FA8C9" };
+function SprayWindowStrip({ weather }) {
+  const h = React.createElement;
+  const hrs = weather && weather.hourlyWindow;
+  if (!hrs || hrs.length === 0) return null;
+  const best = weather.bestRun;
+  return h("div", { className: "space-y-1.5" },
+    h("div", { className: "flex items-center justify-between" },
+      h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080]" }, "Spray window — next " + hrs.length + " hrs"),
+      h("div", { className: "text-[10px] text-[#8A9080] flex gap-2" },
+        ["good", "caution", "poor", "rain"].map(k => h("span", { key: k, className: "flex items-center gap-1" },
+          h("span", { style: { width: 8, height: 8, borderRadius: 2, background: WINDOW_COLOR[k], display: "inline-block" } }),
+          k)))),
+    best && best.len >= 2
+      ? h("div", { className: "text-xs rounded px-2.5 py-1.5 bg-[#EAF0E6] text-[#2B4C3F]" },
+        h("b", null, "Best window: "), fmtHourMs(best.startMs), "–", fmtHr(best.endMs), ` (${best.len} hr${best.len === 1 ? "" : "s"})`, " — light wind, moderate Delta-T, no rain.")
+      : h("div", { className: "text-xs rounded px-2.5 py-1.5 bg-[#FCF3DC] text-[#7A5A12]" }, "No clean multi-hour window in the next day and a half — wind, heat, or rain in the way. Check back, or accept a shorter caution window."),
+    h("div", { className: "overflow-x-auto" },
+      h("div", { className: "flex gap-0.5", style: { minWidth: hrs.length * 22 + "px" } },
+        hrs.map((hw, i) => h("div", {
+          key: i,
+          title: `${fmtHourMs(hw.ms)} — ${hw.rating}${hw.reason ? " (" + hw.reason + ")" : ""}\nwind ${hw.windMph ?? "–"}${hw.gustMph ? "/g" + hw.gustMph : ""} ${hw.dirCard || ""} · ${hw.tempF ?? "–"}°F · Δt ${hw.deltaT ?? "–"} · ${hw.rainProb}% rain`,
+          className: "flex-1 flex flex-col items-center",
+          style: { minWidth: "20px" }
+        },
+          h("div", { style: { height: hw.day ? 22 : 14, width: "100%", background: WINDOW_COLOR[hw.rating], borderRadius: 2, opacity: hw.day ? 1 : 0.55 } }),
+          (i % 3 === 0) && h("div", { className: "text-[8px] text-[#8A9080] mono mt-0.5 whitespace-nowrap" }, fmtTick(hw.ms)))))),
+    h("p", { className: "text-[10px] text-[#9CA391]" }, "Hour-by-hour rating from forecast wind, Delta-T, temperature, and rain probability. Shorter bars are overnight. Hover a bar for the numbers."));
+}
+
 function WeatherPanel({ zip, setZip, weather, status, error, onLoad }) {
   const h = React.createElement;
   const submit = () => onLoad(zip);
@@ -2564,7 +2957,7 @@ function WeatherPanel({ zip, setZip, weather, status, error, onLoad }) {
           value: zip,
           onChange: e => setZip(e.target.value.replace(/[^0-9]/g, "")),
           onKeyDown: e => { if (e.key === "Enter") submit(); },
-          placeholder: "e.g. 75563"
+          placeholder: "5-digit ZIP"
         })
       ),
       h("button", {
@@ -2598,6 +2991,7 @@ function WeatherPanel({ zip, setZip, weather, status, error, onLoad }) {
         (weather.hoursToRain != null ? " · next rain ~" + weather.hoursToRain + " hr out" : " · no rain in the forecast window")
       ),
       h(WeatherFlags, { flags: weather.flags }),
+      h(SprayWindowStrip, { weather }),
       weather.forecast && weather.forecast.length > 0 && h("div", { className: "grid grid-cols-3 gap-2 pt-1" },
         weather.forecast.map(d => h("div", {
           key: d.date,
@@ -2622,7 +3016,7 @@ function WeatherPanel({ zip, setZip, weather, status, error, onLoad }) {
    ============================================================ */
 
 function SprayPlanner() {
-  const [tab, setTab] = useState("plan");
+  const [tab, setTab] = useState("calendar");
   const [loaded, setLoaded] = useState(false);
   const [applications, setApplications] = useState([]);
   const [cuttings, setCuttings] = useState([]);
@@ -2920,7 +3314,12 @@ function SprayPlanner() {
     });
   }, [selectedFieldNames, fieldProfiles, fertNeeds, fertForm, month, weather, fieldCutInfo]);
 
-  const filteredWeeds = WEEDS.filter(w => w.name.toLowerCase().includes(weedSearch.toLowerCase()));
+  // Weed grid: default to the common Southeast species (plus anything already picked);
+  // once the user types, search the whole library.
+  const weedQ = weedSearch.trim().toLowerCase();
+  const filteredWeeds = weedQ
+    ? WEEDS.filter(w => w.name.toLowerCase().includes(weedQ))
+    : WEEDS.filter(w => w.common || selectedWeeds.includes(w.id));
   const filteredPests = PESTS.filter(p => p.name.toLowerCase().includes(pestSearch.toLowerCase()));
   return /*#__PURE__*/React.createElement("div", {
     className: "min-h-screen",
@@ -2985,6 +3384,10 @@ function SprayPlanner() {
       overflowX: "auto"
     }
   }, [{
+    id: "calendar",
+    label: "Calendar",
+    icon: CalendarDays
+  }, {
     id: "plan",
     label: "Plan",
     icon: Droplets
@@ -3032,7 +3435,13 @@ function SprayPlanner() {
     color: tab === t.id ? "#23261F" : "#D8DACE"
   }), t.label)))), /*#__PURE__*/React.createElement("main", {
     className: "max-w-5xl mx-auto px-4 py-6"
-  }, tab === "plan" && /*#__PURE__*/React.createElement(PlanRouter, {
+  }, tab === "calendar" && /*#__PURE__*/React.createElement(CalendarTab, {
+    applications: applications,
+    cuttings: cuttings,
+    fieldProfiles: fieldProfiles,
+    weather: weather,
+    onGoPlan: () => setTab("plan")
+  }), tab === "plan" && /*#__PURE__*/React.createElement(PlanRouter, {
     planMode, setPlanMode,
     fieldProfiles, selectedFieldNames, toggleField,
     month, setMonth, daysSinceRain, setDaysSinceRain, rainExpected, setRainExpected,
@@ -3059,7 +3468,7 @@ function SprayPlanner() {
     onRemove: removeCutting
   }), tab === "reference" && /*#__PURE__*/React.createElement(ReferenceTab, null)), /*#__PURE__*/React.createElement("footer", {
     className: "max-w-5xl mx-auto px-4 pb-10 pt-4 text-xs text-[#6B7A5E] leading-relaxed"
-  }, "This tool is a planning aid built from general pasture herbicide, insecticide, and fertility knowledge — it is not a substitute for the current product label (the legal application document), a current soil test, or your county extension agent / a licensed applicator. Labels, restricted-use status, rates, and grazing/haying restrictions change — verify before every application, especially near your lake frontage."));
+  }, "This tool is a planning aid built from general pasture herbicide, insecticide, and fertility knowledge — it is not a substitute for the current product label (the legal application document), a current soil test, or your county extension agent / a licensed applicator. Labels, restricted-use status, rates, and grazing/haying restrictions change — verify before every application, and especially wherever a field borders a pond, creek, or lake."));
 }
 
 /* ============================================================
@@ -3426,8 +3835,8 @@ function SprayerSetupCard({ sprayerSettings, updateSprayerSettings }) {
         h("input", { type: "number", value: sprayerSettings.defaultGpa, onChange: e => updateSprayerSettings({ defaultGpa: e.target.value }) }))),
     h("div", { className: "mt-3" },
       h("label", { className: "text-xs text-[#6B7A5E] mb-1 block" }, "Applicator name (goes on spray records)"),
-      h("input", { type: "text", value: sprayerSettings.applicatorName || "", onChange: e => updateSprayerSettings({ applicatorName: e.target.value }), placeholder: "e.g. Noah Hertel" })),
-    h("p", { className: "text-[10px] text-[#9CA391] mt-2" }, "Remembers your RoGator's setup between visits, feeds the plan's water calculation, and stamps each logged spray for the printable record."));
+      h("input", { type: "text", value: sprayerSettings.applicatorName || "", onChange: e => updateSprayerSettings({ applicatorName: e.target.value }), placeholder: "e.g. your name" })),
+    h("p", { className: "text-[10px] text-[#9CA391] mt-2" }, "Remembers your sprayer's setup between visits, feeds the plan's water calculation, and stamps each logged spray for the printable record."));
 }
 
 /* ============================================================
@@ -3728,9 +4137,11 @@ function PlanTab(props) {
     type: "text",
     value: weedSearch,
     onChange: e => setWeedSearch(e.target.value),
-    placeholder: "Search weed species…",
+    placeholder: `Search all ${WEEDS.length} weeds & brush…`,
     className: "pl-8"
-  })), /*#__PURE__*/React.createElement("div", {
+  })), filteredWeeds.length === 0 && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#8A9080] py-2"
+  }, "No match in the library — try a shorter term, or a common name (e.g. \"blackberry\", \"nightshade\", \"tallow\")."), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5"
   }, filteredWeeds.map(w => {
     const active = selectedWeeds.includes(w.id);
@@ -3756,7 +4167,9 @@ function PlanTab(props) {
     }, w.name));
   })), /*#__PURE__*/React.createElement("p", {
     className: "text-[10px] text-[#9CA391] mt-2"
-  }, "Reference photos (whole-plant views) from Wikimedia Commons under Creative Commons / public-domain licenses — see img/CREDITS.tsv in the repo for per-photo attribution. For a hands-on ID on a tricky one, check it against your county extension office's weed guide. This selection applies to every field checked above.")), /*#__PURE__*/React.createElement(WeatherPanel, {
+  }, weedSearch.trim()
+    ? "Searching the full library. Tap to add — your selection applies to every field checked above."
+    : `Showing the ${WEEDS.filter(w => w.common).length} most common. Search the box above to pull up any of the ${WEEDS.length} weed and brush species in the library (bitterweed, silverleaf nightshade, marestail, broomsedge, Chinese tallow, macartney rose…). Selection applies to every field checked above.`)), /*#__PURE__*/React.createElement(WeatherPanel, {
     zip: zip,
     setZip: setZip,
     weather: weather,
@@ -3828,7 +4241,7 @@ function PlanTab(props) {
     })
   }))), /*#__PURE__*/React.createElement("p", {
     className: "text-[10px] text-[#9CA391] mt-2"
-  }, "Ground-broadcast pasture herbicides are typically applied at 10–20 GPA — 15 is a reasonable starting point, but your product labels may call for a specific range. Both of these remember your RoGator's setup between visits and feed the Spray Plan's water calculation below.")), !readyForPlan ? /*#__PURE__*/React.createElement("div", {
+  }, "Ground-broadcast pasture herbicides are typically applied at 10–20 GPA — 15 is a reasonable starting point, but your product labels may call for a specific range. Both of these remember your sprayer's setup between visits and feed the Spray Plan's water calculation below.")), !readyForPlan ? /*#__PURE__*/React.createElement("div", {
     className: "text-sm text-[#6B7A5E] bg-white rounded-xl border border-dashed border-[#D8D9CE] p-6 text-center"
   }, "Select at least one field and the weeds present to generate a plan.") : /*#__PURE__*/React.createElement("div", {
     className: "space-y-5"
@@ -4758,7 +5171,7 @@ function FieldsTab({
         [["ph", "Soil pH"], ["pPpm", "P (ppm)"], ["kPpm", "K (ppm)"]].map(([k, lbl]) =>
           h("div", { key: k }, h("label", { className: "text-[10px] text-[#6B7A5E] block" }, lbl),
             h("input", { type: "number", value: (editForm.soilTest || {})[k] ?? "", onChange: e => setEditForm({ ...editForm, soilTest: { ...(editForm.soilTest || {}), [k]: e.target.value } }), className: "w-full" })))),
-      h("p", { className: "text-[10px] text-[#9CA391] mt-1" }, "From a routine Texas A&M AgriLife soil test. Leave blank and the Fertilizer planner falls back to forage / yield-goal estimates. Stored with this field so it's only entered once.")),
+      h("p", { className: "text-[10px] text-[#9CA391] mt-1" }, "From a routine soil test. Leave blank and the Fertilizer planner falls back to forage / yield-goal estimates. Stored with this field so it's only entered once.")),
     /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
       className: "text-[10px] text-[#6B7A5E] block"
     }, "Notes"), /*#__PURE__*/React.createElement("input", {
@@ -4830,6 +5243,162 @@ function FieldsTab({
 }
 
 /* ============================================================
+   CALENDAR / NEXT-ACTIONS
+   ============================================================ */
+
+const CAL_KIND_COLOR = { fert: "#6B7A5E", herbicide: "#2B4C3F", pest: "#B9503F", restriction: "#B98A3F", window: "#7FA8C9", cut: "#9AA089" };
+const CAL_KIND_LABEL = { fert: "Fertility", herbicide: "Herbicide", pest: "Pest", restriction: "Restriction", window: "Window", cut: "Cutting" };
+
+// Region-generic bermuda / bahia pasture & hay calendar (0-indexed month ranges).
+const SEASONAL_WINDOWS = [
+  { m0: 0, m1: 2, title: "Dormant-season grass & pre-emergent", detail: "Bermuda/bahia dormant: broadcast glyphosate on dallisgrass, johnsongrass, bahiagrass, and ryegrass, and put out a pre-emergent (Prowl H2O, Rezilon) for sandbur and crabgrass ahead of germination." },
+  { m0: 2, m1: 3, title: "Spring green-up — first nitrogen", detail: "At ~100% bermuda green-up: the first nitrogen of the year, and imazapic (Plateau / Panoramic) if you're after smutgrass, vaseygrass, or bahiagrass." },
+  { m0: 2, m1: 5, title: "Spring broadleaf window", detail: "Thistle, buttercup, ragweed, bitterweed and other broadleaves are small and growing — 2,4-D + dicamba, GrazonNext / DuraCor, or metsulfuron before they bolt or bloom." },
+  { m0: 4, m1: 9, title: "Fall armyworm scouting", detail: "Walk new growth and every field after a cutting, weekly. Treat at 2–3 larvae per square foot in hay. A diamide (Prevathon) or IGR gives the most reliable kill." },
+  { m0: 4, m1: 5, title: "Grasshopper border-treat", detail: "Treat field margins and ditches while nymphs are small — a border strip now beats a whole-field rescue spray in August." },
+  { m0: 5, m1: 8, title: "Bermudagrass stem maggot", detail: "7–10 days after each cutting, as regrowth greens up. Bifenthrin is the usual pick." },
+  { m0: 7, m1: 7, title: "Last nitrogen by ~September 1", detail: "Nitrogen after early September pushes tender growth that winter-kills and feeds winter weeds. Stop unless you're stockpiling for winter grazing." },
+  { m0: 8, m1: 10, title: "Lime & soil-test window", detail: "Fall is the time to lime — it needs 6+ months to move pH before spring. Pull soil tests now so you buy to a number, not a guess." },
+  { m0: 8, m1: 10, title: "Fall broadleaf & winter-annual control", detail: "Perennials are moving sugars to the roots (best time to hit horsenettle, dock, and sericea), and winter annuals (henbit, chickweed, ryegrass) are germinating — a fall pass carries you clean into spring." },
+];
+
+function calendarEventsForMonth(year, m0, data) {
+  const events = [];
+  const mStart = new Date(year, m0, 1), mEnd = new Date(year, m0 + 1, 0);
+  const inMonth = iso => { const d = new Date(iso + "T12:00:00"); return d >= mStart && d <= mEnd; };
+  const push = (dateISO, field, kind, title, detail, tag) => { if (dateISO && inMonth(dateISO)) events.push({ dateISO, field, kind, title, detail, tag }); };
+
+  const apps = (data.applications || []).filter(a => a.date);
+  const cuts = (data.cuttings || []).filter(c => c.date && c.field);
+  const fields = [...new Set([...Object.keys(data.fieldProfiles || {}), ...apps.map(a => a.field), ...cuts.map(c => c.field)].filter(Boolean))];
+
+  fields.forEach(field => {
+    const prof = (data.fieldProfiles || {})[field] || {};
+    const isHay = prof.useType === "hay" || prof.useType === "both";
+    const fApps = apps.filter(a => a.field === field).sort((a, b) => a.date.localeCompare(b.date));
+    const fCuts = cuts.filter(c => c.field === field).sort((a, b) => a.date.localeCompare(b.date));
+
+    const r = computeFieldRestrictions(field, apps);
+    if (r.graze.until) push(r.graze.until, field, "restriction", "Grazing OK", `${shortProductName(r.graze.product)} grazing interval ends.`, "restriction");
+    if (r.hay.until) push(r.hay.until, field, "restriction", "Hay OK", `${shortProductName(r.hay.product)} hay interval ends.`, "restriction");
+    if (r.carry.until) push(r.carry.until, field, "restriction", "Carryover hold lifts", `The aminopyralid / picloram hay & manure hold from ${shortProductName(r.carry.product)} lifts (approximate).`, "restriction");
+
+    const msmaApps = fApps.filter(a => a.herbicideId === "msma");
+    if (msmaApps.length === 1) push(shiftISO(msmaApps[0].date, { days: 9 }), field, "herbicide", "MSMA 2nd pass", "The label calls for a second application 7–10 days after the first for dallisgrass.", "due");
+    ["pendimethalin", "indaziflam"].forEach(id => {
+      const a = fApps.filter(x => x.herbicideId === id);
+      if (a.length === 1) push(shiftISO(a[0].date, { days: 80 }), field, "herbicide", "Pre-emergent follow-up", "Season-long sandbur / crabgrass control usually needs a follow-up or split ~10–12 weeks after the first pass.", "window");
+    });
+
+    const lastCutISO = fCuts.length ? fCuts[fCuts.length - 1].date : null;
+    let seed = lastCutISO || (isHay ? `${year}-05-20` : null);
+    if (seed) {
+      let d = seed;
+      for (let n = 0; n < 8; n++) {
+        const cutISO = n === 0 ? d : shiftISO(d, { days: 30 });
+        d = cutISO;
+        const mm = Number(cutISO.slice(5, 7));
+        if (mm < 4 || mm > 9) break;
+        const logged = !!fCuts.find(c => c.date === cutISO);
+        push(cutISO, field, "cut", logged ? "Hay cut (logged)" : "Hay cut (projected)", logged ? ((fCuts.find(c => c.date === cutISO) || {}).notes || "") : "Projected on a ~30-day cutting cycle — this shifts as you actually cut.", logged ? "logged" : "projected");
+        if (isHay) {
+          push(shiftISO(cutISO, { days: 7 }), field, "fert", "Post-cut nitrogen", "Once regrowth greens up, ~50–60 lb N/ac to feed the next cutting.", logged ? "due" : "projected");
+          if (mm >= 7 && mm <= 9) push(shiftISO(cutISO, { days: 8 }), field, "pest", "Stem maggot check", "7–10 days after this cut, as regrowth greens up.", "window");
+        }
+      }
+    }
+
+    const fertApps = fApps.filter(a => a.category === "fertilizer" || /fertilizer/i.test(a.herbicideId || ""));
+    if (fertApps.length) {
+      const last = fertApps[fertApps.length - 1];
+      push(shiftISO(last.date, { days: 35 }), field, "fert", "Next fertilizer split", `About 35 days since the last fertilizer pass — on a hay cutting cycle the next split is roughly due.`, "due");
+    }
+
+    const st = prof.soilTest, ph = st && st.ph ? Number(st.ph) : null;
+    if (ph != null && ph < 6.0) push(`${year}-10-01`, field, "fert", "Lime this fall", `Soil pH ${ph} — lime needs the winter to move pH. Budget about ${Math.min(4, Math.round((6.5 - ph) * 2 * 10) / 10)} tons/ac ag lime.`, "window");
+    else if (!st) push(`${year}-09-15`, field, "fert", "Pull a soil test", `No soil test on file for this field — a fall test right-sizes P, K, and lime for next year.`, "window");
+  });
+
+  SEASONAL_WINDOWS.forEach(s => {
+    if (m0 >= s.m0 && m0 <= s.m1) events.push({ dateISO: `${year}-${String(m0 + 1).padStart(2, "0")}-01`, field: null, kind: "window", title: s.title, detail: s.detail, tag: "seasonal", seasonal: true });
+  });
+
+  return events.sort((a, b) => a.dateISO.localeCompare(b.dateISO) || (a.seasonal ? -1 : 1));
+}
+
+function CalendarTab({ applications, cuttings, fieldProfiles, weather, onGoPlan }) {
+  const h = React.createElement;
+  const now = new Date();
+  const [ref, setRef] = useState({ y: now.getFullYear(), m: now.getMonth() });
+  const data = { applications, cuttings, fieldProfiles };
+  const events = calendarEventsForMonth(ref.y, ref.m, data);
+  const seasonal = events.filter(e => e.seasonal);
+  const dated = events.filter(e => !e.seasonal);
+  const byDay = {};
+  dated.forEach(e => { (byDay[e.dateISO] = byDay[e.dateISO] || []).push(e); });
+
+  const monthLabel = new Date(ref.y, ref.m, 1).toLocaleDateString([], { month: "long", year: "numeric" });
+  const first = new Date(ref.y, ref.m, 1).getDay();
+  const dim = new Date(ref.y, ref.m + 1, 0).getDate();
+  const todayStr = todayISO();
+  const cells = [];
+  for (let i = 0; i < first; i++) cells.push(null);
+  for (let d = 1; d <= dim; d++) cells.push(`${ref.y}-${String(ref.m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+  while (cells.length % 7) cells.push(null);
+  const weeks = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  const shift = n => setRef(r => { const d = new Date(r.y, r.m + n, 1); return { y: d.getFullYear(), m: d.getMonth() }; });
+
+  const hasFields = Object.keys(fieldProfiles || {}).length > 0 || applications.length > 0 || cuttings.length > 0;
+
+  return h("div", { className: "space-y-4" },
+    h("div", { className: "flex items-center justify-between" },
+      h("button", { onClick: () => shift(-1), className: "px-2 py-1 text-sm", style: BTN_GHOST_STYLE }, h(ChevronRight, { size: 16, className: "rotate-180" })),
+      h("div", { className: "display font-bold text-lg" }, monthLabel),
+      h("button", { onClick: () => shift(1), className: "px-2 py-1 text-sm", style: BTN_GHOST_STYLE }, h(ChevronRight, { size: 16 }))),
+    !hasFields && h("div", { className: "text-sm text-[#6B7A5E] bg-white rounded-xl border border-dashed border-[#D8D9CE] p-5 text-center" },
+      "Add fields and log a spray or a cutting, and this fills with projected re-treatment dates. The seasonal windows below show regardless."),
+    h("div", { className: "bg-white rounded-xl border border-[#D8D9CE] p-3" },
+      h("div", { className: "grid grid-cols-7 text-center text-[10px] uppercase tracking-wide text-[#8A9080] mb-1" },
+        ["S", "M", "T", "W", "T", "F", "S"].map((d, i) => h("div", { key: i }, d))),
+      weeks.map((wk, wi) => h("div", { key: wi, className: "grid grid-cols-7 gap-1" },
+        wk.map((iso, di) => h("div", {
+          key: di,
+          className: `min-h-[46px] rounded-md border p-1 text-[11px] ${iso === todayStr ? "border-[#2B4C3F] bg-[#EAF0E6]" : iso ? "border-[#EFF1E8]" : "border-transparent"}`
+        },
+          iso && h("div", { className: "text-[#8A9080] mono" }, Number(iso.slice(8))),
+          iso && (byDay[iso] || []).slice(0, 3).map((e, ei) => h("div", {
+            key: ei,
+            title: `${e.title}${e.field ? " — " + e.field : ""}: ${e.detail}`,
+            className: "truncate leading-tight",
+            style: { color: CAL_KIND_COLOR[e.kind] }
+          }, "• ", e.title)),
+          iso && (byDay[iso] || []).length > 3 && h("div", { className: "text-[9px] text-[#8A9080]" }, "+", (byDay[iso] || []).length - 3, " more")))))),
+    seasonal.length > 0 && h("div", { className: "space-y-2" },
+      h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080]" }, "Seasonal windows this month"),
+      seasonal.map((e, i) => h("div", { key: i, className: "bg-white rounded-lg border border-[#D8D9CE] p-3" },
+        h("div", { className: "flex items-center gap-2 text-sm font-semibold text-[#23261F]" },
+          h("span", { style: { width: 8, height: 8, borderRadius: 2, background: CAL_KIND_COLOR.window, display: "inline-block" } }), e.title),
+        h("div", { className: "text-xs text-[#6B7A5E] mt-1 leading-snug" }, e.detail)))),
+    dated.length > 0 && h("div", { className: "space-y-1.5" },
+      h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080]" }, "Dated this month"),
+      dated.map((e, i) => h("div", { key: i, className: "bg-white rounded-lg border border-[#D8D9CE] px-3 py-2 flex items-start gap-2.5" },
+        h("div", { className: "text-center shrink-0" },
+          h("div", { className: "text-[10px] uppercase text-[#8A9080]" }, new Date(e.dateISO + "T12:00:00").toLocaleDateString([], { month: "short" })),
+          h("div", { className: "mono font-bold text-[#23261F] leading-none" }, Number(e.dateISO.slice(8)))),
+        h("div", { className: "min-w-0" },
+          h("div", { className: "text-sm font-medium text-[#23261F] flex items-center gap-1.5" },
+            h("span", { style: { width: 7, height: 7, borderRadius: 2, background: CAL_KIND_COLOR[e.kind], display: "inline-block" } }),
+            e.title, e.field && h("span", { className: "text-[#8A9080] font-normal" }, " · ", e.field),
+            h("span", { className: `text-[9px] uppercase tracking-wide px-1 rounded ${e.tag === "logged" ? "bg-[#EFF1E8] text-[#6B7A5E]" : e.tag === "due" ? "bg-[#FCE9E4] text-[#8C2E1F]" : "bg-[#F1EEE6] text-[#8A9080]"}` }, e.tag === "logged" ? "logged" : e.tag === "due" ? "due" : "projected")),
+          h("div", { className: "text-xs text-[#6B7A5E] leading-snug" }, e.detail))))),
+    weather && weather.bestRun && h("div", { className: "bg-white rounded-lg border border-[#D8D9CE] p-3 text-xs" },
+      h("b", null, "Next good spray window: "), fmtHourMs(weather.bestRun.startMs), "–", fmtHr(weather.bestRun.endMs), `. `,
+      h("button", { onClick: onGoPlan, className: "text-[#2B4C3F] font-medium underline", style: { background: "none", border: "none", cursor: "pointer", padding: 0 } }, "Open the planner")),
+    h("p", { className: "text-[10px] text-[#9CA391]" }, "Projected dates come from your logged cuttings and applications on a typical bermuda/bahia schedule — they move as you log the real thing. Seasonal windows are general Southeast timing, not field-specific."));
+}
+
+/* ============================================================
    REFERENCE TAB
    ============================================================ */
 
@@ -4845,9 +5414,10 @@ function ReferenceTab() {
     className: `px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${sub === id ? "bg-[#2B4C3F] border-[#2B4C3F] text-white" : "bg-white border-[#D8D9CE] text-[#3A3D33] hover:border-[#2B4C3F]"}`
   }, label);
 
+  const searching = q.trim().length > 0;
   const searchBox = h("div", { className: "relative" },
     h(Search, { size: 14, className: "absolute left-3 top-1/2 -translate-y-1/2 text-[#B9BFAE]" }),
-    h("input", { type: "text", value: q, onChange: e => setQ(e.target.value), placeholder: "Search…", className: "pl-8" }));
+    h("input", { type: "text", value: q, onChange: e => setQ(e.target.value), placeholder: "Search a product, or a weed / pest name (e.g. \"johnsongrass\")", className: "pl-8" }));
 
   function card(id, title, subtitle, ru, rows) {
     return h("div", { key: id, className: "bg-white rounded-lg border border-[#D8D9CE] overflow-hidden" },
@@ -4858,36 +5428,48 @@ function ReferenceTab() {
         rows.map((r, i) => r && h("div", { key: i, className: r[0] === "_note" ? "text-[#6B7A5E]" : "" },
           r[0] === "_note" ? r[1] : h(React.Fragment, null, h("b", null, r[0], ":"), " ", r[1])))));
   }
+  const matchTarget = (ids, list) => (ids || []).some(id => { const t = list.find(z => z.id === id); return t && t.name.toLowerCase().includes(ql); });
+  const herbCard = x => card(x.id, x.name, `MOA ${x.moa} · ${x.use.join(" & ")}${productLabelData(x.id).epaReg ? " · EPA " + productLabelData(x.id).epaReg : ""}`, x.restrictedUse, [
+    ["Targets", x.targets.map(id => (WEEDS.find(w => w.id === id) || {}).name).filter(Boolean).join(", ")],
+    ["Rate", x.rate], ["Grazing", x.grazing], ["Hay", x.hay],
+    productLabelData(x.id).annualMaxOz != null ? ["Annual max", `${productLabelData(x.id).annualMaxOz} ${x.rateUnit}`] : null,
+    ["Water buffer", `~${x.waterBufferFt} ft`], ["Window", x.tempWindow], ["_note", x.notes]
+  ]);
+  const insCard = x => card(x.id, x.name, `IRAC ${x.iracGroup} · ${x.use.join(" & ")}`, x.restrictedUse, [
+    ["Targets", x.targets.map(id => (PESTS.find(p => p.id === id) || {}).name).filter(Boolean).join(", ")],
+    ["Rate", x.rate], ["Grazing / Hay PHI", `${x.grazing} / ${x.hay}`], ["Restricted-entry", `${x.rei} hr`],
+    ["Bee toxicity", x.beeTox], ["Water buffer", `~${x.waterBufferFt} ft`], ["Timing", x.timingWindow], ["_note", x.notes]
+  ]);
+  const fertCard = x => card(x.id, `${x.name} (${x.analysis})`,
+    `${x.form === "liquid" ? "Liquid" : x.form === "both" ? "Dry or liquid" : "Dry"}${x.nPct ? ` · ${x.nPct}% N` : ""}${x.pPct ? ` · ${x.pPct}% P₂O₅` : ""}${x.kPct ? ` · ${x.kPct}% K₂O` : ""}${x.sPct ? ` · ${x.sPct}% S` : ""}`,
+    false, [x.lbPerGal ? ["Weight", `${x.lbPerGal} lb/gal${x.nLbPerGal ? `, ${x.nLbPerGal} lb N/gal` : ""}`] : null, ["_note", x.note]]);
+
+  function section(label, items) {
+    if (!items.length) return null;
+    return h("div", { className: "space-y-2" },
+      h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080] pt-1" }, `${items.length} ${label}`),
+      items);
+  }
 
   let body;
-  if (sub === "herbicides") {
-    body = HERBICIDES.filter(x => x.name.toLowerCase().includes(ql)).map(x => card(x.id, x.name,
-      `MOA ${x.moa} · ${x.use.join(" & ")}`, x.restrictedUse, [
-        ["Targets", x.targets.map(id => (WEEDS.find(w => w.id === id) || {}).name).join(", ")],
-        ["Rate", x.rate], ["Grazing", x.grazing], ["Hay", x.hay],
-        ["Water buffer", `~${x.waterBufferFt} ft`], ["Window", x.tempWindow], ["_note", x.notes]
-      ]));
-  } else if (sub === "insecticides") {
-    body = INSECTICIDES.filter(x => x.name.toLowerCase().includes(ql)).map(x => card(x.id, x.name,
-      `IRAC ${x.iracGroup} · ${x.use.join(" & ")}`, x.restrictedUse, [
-        ["Targets", x.targets.map(id => (PESTS.find(p => p.id === id) || {}).name).join(", ")],
-        ["Rate", x.rate], ["Grazing / Hay PHI", `${x.grazing} / ${x.hay}`], ["Restricted-entry", `${x.rei} hr`],
-        ["Bee toxicity", x.beeTox], ["Water buffer", `~${x.waterBufferFt} ft`], ["Timing", x.timingWindow], ["_note", x.notes]
-      ]));
+  if (!searching) {
+    body = sub === "herbicides" ? HERBICIDES.map(herbCard)
+      : sub === "insecticides" ? INSECTICIDES.map(insCard)
+      : FERT_PRODUCTS.map(fertCard);
   } else {
-    body = FERT_PRODUCTS.filter(x => x.name.toLowerCase().includes(ql) || x.analysis.toLowerCase().includes(ql)).map(x => card(x.id, `${x.name} (${x.analysis})`,
-      `${x.form === "liquid" ? "Liquid" : "Dry"}${x.nPct ? ` · ${x.nPct}% N` : ""}${x.pPct ? ` · ${x.pPct}% P₂O₅` : ""}${x.kPct ? ` · ${x.kPct}% K₂O` : ""}${x.sPct ? ` · ${x.sPct}% S` : ""}`,
-      false, [
-        x.lbPerGal ? ["Weight", `${x.lbPerGal} lb/gal${x.nLbPerGal ? `, ${x.nLbPerGal} lb N/gal` : ""}`] : null,
-        ["_note", x.note]
-      ]));
+    const hM = HERBICIDES.filter(x => x.name.toLowerCase().includes(ql) || matchTarget(x.targets, WEEDS));
+    const iM = INSECTICIDES.filter(x => x.name.toLowerCase().includes(ql) || matchTarget(x.targets, PESTS));
+    const fM = FERT_PRODUCTS.filter(x => x.name.toLowerCase().includes(ql) || x.analysis.toLowerCase().includes(ql) || (x.note || "").toLowerCase().includes(ql));
+    body = (hM.length + iM.length + fM.length) === 0
+      ? h("p", { className: "text-sm text-[#6B7A5E] py-3" }, `Nothing matches “${q}”. Search a product name, or a weed / pest — for example “sandbur”, “fall armyworm”, “dicamba”, “potash”.`)
+      : h("div", { className: "space-y-4" }, section("herbicide" + (hM.length === 1 ? "" : "s") + " labeled for this", hM.map(herbCard)), section("insecticide" + (iM.length === 1 ? "" : "s") + " labeled for this", iM.map(insCard)), section("fertilizer product" + (fM.length === 1 ? "" : "s"), fM.map(fertCard)));
   }
 
   return h("div", { className: "space-y-4" },
-    h("div", { className: "flex gap-2 flex-wrap" }, subTab("herbicides", "Herbicides"), subTab("insecticides", "Insecticides"), subTab("fertilizer", "Fertilizer")),
     searchBox,
+    !searching && h("div", { className: "flex gap-2 flex-wrap" }, subTab("herbicides", "Herbicides"), subTab("insecticides", "Insecticides"), subTab("fertilizer", "Fertilizer")),
     body,
-    h("p", { className: "text-[10px] text-[#9CA391]" }, "Reference figures only — the current product label is the legal document and it overrides anything here. Restricted-use status, PHIs, and buffers change."));
+    h("p", { className: "text-[10px] text-[#9CA391]" }, "Reference figures only — the current product label is the legal document and it overrides anything here. “Labeled for this” means our data links the product to that weed or pest; always confirm the current label lists it and at what rate. Restricted-use status, PHIs, buffers, and EPA numbers change."));
 }
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(React.createElement(SprayPlanner));
