@@ -823,6 +823,21 @@ function computeRecommendations({
         flags.push({ level: "info", text: `Cut ~${daysSinceCut} days ago — bermuda regrowth is coming back and starting to shield the weeds. The clean post-cutting shot has mostly passed for this field.` });
       }
     }
+    // Annual per-acre label maximum, tallied from this field's logged applications this year
+    const capOz = productLabelData(h.id).annualMaxOz;
+    if (capOz != null) {
+      const yr = String(new Date().getFullYear());
+      const mid = (h.rateLowOz + h.rateHighOz) / 2;
+      const passes = applications.filter(a => a.herbicideId === h.id && (a.date || "").slice(0, 4) === yr).length;
+      if (passes > 0) {
+        const usedOz = passes * mid;
+        if (usedOz + mid > capOz + 0.001) {
+          flags.push({ level: "danger", text: `Annual max: this field's already had ~${usedOz.toFixed(1)} ${h.rateUnit} of this in ${yr} (${passes} pass${passes > 1 ? "es" : ""}); the label ceiling is ${capOz}. Another labeled-rate pass puts you over — don't.` });
+        } else if (usedOz + mid > capOz - mid) {
+          flags.push({ level: "warn", text: `Annual max: ~${usedOz.toFixed(1)} of ${capOz} ${h.rateUnit} used on this field in ${yr}. Room for about one more pass at the label rate.` });
+        }
+      }
+    }
     const score = hits.length * 10 - flags.filter(f => f.level === "danger").length * 100 - flags.filter(f => f.level === "warn").length * 2;
     return {
       herbicide: h,
@@ -1144,6 +1159,303 @@ function phiDays(str) {
   return Math.max(...nums.map(Number));
 }
 
+/* ============================================================
+   RECORDS / RESTRICTIONS / BACKUP  (built on the application log)
+   ============================================================ */
+
+function productById(id) {
+  return HERBICIDES.find(p => p.id === id) || INSECTICIDES.find(p => p.id === id) || null;
+}
+function shortProductName(name) {
+  return String(name || "").replace(/\s*\(e\.g\.\s*[^)]*\)/i, "").trim();
+}
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function shiftISO(dateStr, { days = 0, months = 0 }) {
+  const d = new Date((dateStr || todayISO()) + "T12:00:00");
+  if (months) d.setMonth(d.getMonth() + months);
+  if (days) d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+function daysBetween(aISO, bISO) {
+  return Math.round((Date.parse(bISO + "T12:00:00") - Date.parse(aISO + "T12:00:00")) / 86400000);
+}
+function isProhibitedText(str) {
+  return /\bdo not\b[^.]*\b(cut|hay|graze|pasture|mow)/i.test(String(str || ""));
+}
+function isVagueText(str) {
+  return /varies|check|label|current/i.test(String(str || "")) && phiDays(str) === 0 && !isProhibitedText(str);
+}
+
+// Per-field: what's still under a grazing / hay / carryover restriction, and until when.
+function computeFieldRestrictions(fieldName, applications, refISO) {
+  const ref = refISO || todayISO();
+  const apps = (applications || []).filter(a => a.field === fieldName && a.date && a.herbicideId !== "fertilizer");
+  const rows = [];
+  apps.forEach(a => {
+    const p = productById(a.herbicideId);
+    if (!p) return;
+    [["graze", p.grazing], ["hay", p.hay]].forEach(([kind, txt]) => {
+      if (isProhibitedText(txt)) {
+        rows.push({ kind, product: p.name, date: a.date, prohibited: true, text: txt });
+      } else {
+        const d = phiDays(txt);
+        const vague = isVagueText(txt);
+        if (d > 0) {
+          rows.push({ kind, product: p.name, date: a.date, until: shiftISO(a.date, { days: d }), days: d });
+        } else if (vague) {
+          // no fixed interval on the label text — keep a ~6-week reminder window to go check it
+          rows.push({ kind, product: p.name, date: a.date, until: shiftISO(a.date, { days: 45 }), days: 0, vague: true });
+        }
+      }
+    });
+    if (p.manureMonths > 0) {
+      rows.push({ kind: "carryover", product: p.name, date: a.date, until: shiftISO(a.date, { months: p.manureMonths }), months: p.manureMonths });
+    }
+  });
+  function summarize(kind) {
+    const list = rows.filter(r => r.kind === kind);
+    const prohibited = list.filter(r => r.prohibited);
+    const stillActive = list.filter(r => r.until && r.until > ref);
+    const latest = stillActive.slice().sort((x, y) => x.until.localeCompare(y.until)).pop() || null;
+    return {
+      prohibited: prohibited.length ? prohibited : null,
+      until: latest ? latest.until : null,
+      product: latest ? latest.product : null,
+      vague: latest ? !!latest.vague : false,
+      date: latest ? latest.date : null,
+      daysLeft: latest ? daysBetween(ref, latest.until) : 0
+    };
+  }
+  const graze = summarize("graze");
+  const hay = summarize("hay");
+  const carry = summarize("carryover");
+  return {
+    graze, hay, carry,
+    hasAny: !!(graze.prohibited || graze.until || hay.prohibited || hay.until || carry.until),
+    rows
+  };
+}
+
+/* Label annual maximums (worst-case, per acre per year, in each product's own
+   rate unit) and EPA registration numbers — kept separate from the product list
+   so they're a single place to audit against your containers. annualMaxOz null =
+   not tracked here (verify on the label). EPA reg numbers vary by brand/formulator;
+   the ones below are stable Corteva registrations — confirm against your jug. */
+const PRODUCT_LABEL_DATA = {
+  "24d":            { annualMaxOz: null, epaReg: "", epaNote: "brand-specific (Weedar 64 = 71368-1)" },
+  "grazonnext":     { annualMaxOz: 34,   epaReg: "62719-521" },
+  "milestone":      { annualMaxOz: 7,    epaReg: "62719-519" },
+  "pasturegard":    { annualMaxOz: null, epaReg: "62719-567" },
+  "remedyultra":    { annualMaxOz: 128,  epaReg: "62719-552" },
+  "pastora":        { annualMaxOz: 2.5,  epaReg: "432-1552" },
+  "glyphosate":     { annualMaxOz: null, epaReg: "", epaNote: "brand-specific (Roundup PowerMax = 524-549)" },
+  "imazapic":       { annualMaxOz: 12,   epaReg: "", epaNote: "Panoramic 2SL = 66222-149; Plateau = 241-365" },
+  "pendimethalin":  { annualMaxOz: null, epaReg: "241-418" },
+  "indaziflam":     { annualMaxOz: 7,    epaReg: "432-1636" },
+  "paraquat":       { annualMaxOz: null, epaReg: "", epaNote: "Gramoxone SL 3.0 = 100-1431" },
+  "cimarronplus":   { annualMaxOz: null, epaReg: "432-1550" },
+  "outrider":       { annualMaxOz: 4,    epaReg: "524-475" },
+  "msma":           { annualMaxOz: null, epaReg: "", epaNote: "Target 6 Plus = 34704-1050" },
+  "sedgehammer":    { annualMaxOz: null, epaReg: "81880-1-10163" },
+  "chaparral":      { annualMaxOz: 3.3,  epaReg: "62719-590" },
+  "surmount":       { annualMaxOz: null, epaReg: "62719-484" },
+  "chlorantraniliprole": { annualMaxOz: 57, epaReg: "352-844" },
+  "methoxyfenozide":     { annualMaxOz: 16, epaReg: "62719-442" },
+  "spinosad":            { annualMaxOz: null, epaReg: "62719-524" },
+  "lambdacy":            { annualMaxOz: null, epaReg: "100-1295" },
+  "zetacypermethrin":    { annualMaxOz: null, epaReg: "279-3327" },
+  "bifenthrin":          { annualMaxOz: null, epaReg: "279-3313" },
+  "carbaryl":            { annualMaxOz: null, epaReg: "264-349" },
+  "dimilin":             { annualMaxOz: 8,  epaReg: "400-461" },
+  "malathion":           { annualMaxOz: null, epaReg: "" },
+  "sivanto":             { annualMaxOz: null, epaReg: "264-1141" },
+  "fireantbait":         { annualMaxOz: null, epaReg: "", epaNote: "Extinguish Plus = 2724-496" },
+};
+function productLabelData(id) { return PRODUCT_LABEL_DATA[id] || {}; }
+
+// Per-field-per-product: how much of this year's labeled annual max is already used.
+function annualUsage(fieldName, productId, applications, year) {
+  const p = productById(productId);
+  const cap = productLabelData(productId).annualMaxOz;
+  if (!p || cap == null) return null;
+  const y = String(year || new Date().getFullYear());
+  const mid = (p.rateLowOz + p.rateHighOz) / 2;
+  const used = (applications || []).filter(a =>
+    a.field === fieldName && a.herbicideId === productId && (a.date || "").slice(0, 4) === y
+  );
+  const usedOz = used.length * mid;
+  return {
+    count: used.length,
+    usedOz,
+    cap,
+    remainingOz: cap - usedOz,
+    unit: p.rateUnit,
+    nextWouldExceed: usedOz + mid > cap + 0.001,
+    atCap: usedOz >= cap - 0.001,
+    year: y
+  };
+}
+
+async function exportAllData() {
+  const listed = await window.storage.list("spray-planner:");
+  const keys = (listed && listed.keys) || [];
+  const data = {};
+  for (const k of keys) {
+    const r = await window.storage.get(k);
+    if (!r) continue;
+    try { data[k] = JSON.parse(r.value); } catch (e) { data[k] = r.value; }
+  }
+  return { app: "SprayPlan", schema: 1, exportedAt: new Date().toISOString(), data };
+}
+async function importAllData(obj) {
+  if (!obj || obj.app !== "SprayPlan" || !obj.data || typeof obj.data !== "object") {
+    throw new Error("That doesn't look like a SprayPlan backup file.");
+  }
+  let n = 0;
+  for (const k of Object.keys(obj.data)) {
+    if (!k.startsWith("spray-planner:")) continue;
+    await window.storage.set(k, JSON.stringify(obj.data[k]));
+    n++;
+  }
+  return n;
+}
+function downloadTextFile(filename, text, mime) {
+  try {
+    const blob = new Blob([text], { type: mime || "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+function csvCell(v) {
+  const s = v == null ? "" : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// Snapshot of the conditions at log time, stamped onto each application entry so
+// the printable record isn't reconstructed from stale field/weather data later.
+function recordSnapshot(profile, weather, sprayerSettings) {
+  const c = weather && weather.current ? weather.current : null;
+  const parts = [];
+  if (c && c.windMph != null) parts.push(`wind ${Math.round(c.windMph)} mph${c.dirCard ? " " + c.dirCard : ""}`);
+  if (c && c.tempF != null) parts.push(`${Math.round(c.tempF)}°F`);
+  if (c && c.rh != null) parts.push(`${Math.round(c.rh)}% RH`);
+  return {
+    acres: Number(profile && profile.acreage) > 0 ? Number(profile.acreage) : null,
+    windMph: c && c.windMph != null ? Math.round(c.windMph) : null,
+    windDir: c ? c.dirCard || null : null,
+    tempF: c && c.tempF != null ? Math.round(c.tempF) : null,
+    conditions: parts.join(", "),
+    appliedBy: (sprayerSettings && sprayerSettings.applicatorName) || ""
+  };
+}
+
+// One normalized row per logged pesticide application, for the printable / CSV record.
+function sprayRecordRows(applications, fieldProfiles, opts) {
+  const rupOnly = opts && opts.rupOnly;
+  return (applications || [])
+    .filter(a => a.category === "herbicide" || a.category === "insecticide" ||
+      (a.category == null && a.herbicideId !== "fertilizer" && productById(a.herbicideId)))
+    .map(a => {
+      const p = productById(a.herbicideId);
+      const ld = productLabelData(a.herbicideId);
+      const prof = (fieldProfiles && fieldProfiles[a.field]) || {};
+      const targets = (a.weeds || a.pests || []).map(id =>
+        (WEEDS.find(w => w.id === id) || PESTS.find(x => x.id === id) || {}).name).filter(Boolean).join("; ");
+      return {
+        date: a.date || "",
+        field: a.field || "",
+        acres: a.acres != null ? a.acres : (Number(prof.acreage) > 0 ? Number(prof.acreage) : ""),
+        product: a.herbicideName || (p ? p.name : a.herbicideId),
+        epaReg: ld.epaReg || "",
+        rate: a.rate || (p ? p.rate : ""),
+        target: targets || (a.category === "insecticide" ? "insect pest" : "weeds"),
+        restricted: p ? !!p.restrictedUse : false,
+        applicator: a.appliedBy || "",
+        conditions: a.conditions || [a.windMph != null ? `wind ${a.windMph}${a.windDir ? " " + a.windDir : ""} mph` : "", a.tempF != null ? `${a.tempF}°F` : ""].filter(Boolean).join(", ")
+      };
+    })
+    .filter(r => !rupOnly || r.restricted)
+    .sort((x, y) => (y.date || "").localeCompare(x.date || ""));
+}
+function buildSprayRecordCSV(rows) {
+  const head = ["Date", "Field", "Acres treated", "Product", "EPA Reg. No.", "Rate", "Target pest", "Restricted use", "Applicator", "Wind / temp"];
+  const lines = [head.map(csvCell).join(",")];
+  rows.forEach(r => lines.push([r.date, r.field, r.acres, r.product, r.epaReg, r.rate, r.target, r.restricted ? "YES" : "", r.applicator, r.conditions].map(csvCell).join(",")));
+  return lines.join("\n");
+}
+function printSprayRecord(rows, title) {
+  const w = window.open("", "_blank");
+  if (!w) return false;
+  const esc = s => String(s == null ? "" : s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  const body = rows.map(r => `<tr>
+    <td>${esc(r.date)}</td><td>${esc(r.field)}</td><td>${esc(r.acres)}</td>
+    <td>${esc(r.product)}${r.restricted ? ' <span class="rup">RUP</span>' : ""}</td>
+    <td>${esc(r.epaReg) || '<span class="blank">from container</span>'}</td>
+    <td>${esc(r.rate)}</td><td>${esc(r.target)}</td>
+    <td>${esc(r.applicator) || '<span class="blank">&nbsp;</span>'}</td>
+    <td>${esc(r.conditions) || '<span class="blank">&nbsp;</span>'}</td></tr>`).join("");
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title || "Spray Record")}</title>
+  <style>
+    body{font:12px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:#111;margin:24px;}
+    h1{font-size:16px;margin:0 0 2px;} .sub{color:#555;font-size:11px;margin-bottom:14px;}
+    table{border-collapse:collapse;width:100%;} th,td{border:1px solid #999;padding:4px 6px;text-align:left;vertical-align:top;}
+    th{background:#eee;font-size:10px;text-transform:uppercase;letter-spacing:.03em;}
+    .rup{background:#8C2E1F;color:#fff;font-size:9px;padding:0 3px;border-radius:2px;}
+    .blank{color:#bbb;} .foot{margin-top:14px;color:#555;font-size:10px;}
+    @media print{body{margin:12mm;}}
+  </style></head><body>
+  <h1>${esc(title || "Pesticide Application Record")}</h1>
+  <div class="sub">SprayPlan · generated ${new Date().toLocaleString()} · ${rows.length} record${rows.length === 1 ? "" : "s"}</div>
+  <table><thead><tr>
+    <th>Date</th><th>Field / location</th><th>Acres</th><th>Product</th><th>EPA Reg. No.</th><th>Rate</th><th>Target pest</th><th>Applicator</th><th>Wind / temp</th>
+  </tr></thead><tbody>${body}</tbody></table>
+  <div class="foot">Verify EPA registration numbers against the container. Texas requires restricted-use pesticide records be kept for 2 years. Blank applicator / condition fields can be completed by hand.</div>
+  </body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { try { w.print(); } catch (e) {} }, 250);
+  return true;
+}
+
+function SprayRecordCard({ applications, fieldProfiles }) {
+  const h = React.createElement;
+  const [rupOnly, setRupOnly] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const rows = sprayRecordRows(applications, fieldProfiles, { rupOnly });
+  const missingReg = rows.filter(r => !r.epaReg).length;
+  function doPrint() {
+    const ok = printSprayRecord(rows, rupOnly ? "Restricted-Use Pesticide Record" : "Pesticide Application Record");
+    if (!ok) setMsg("Your browser blocked the print window — allow pop-ups for this page, or use CSV.");
+  }
+  function doCsv() {
+    const ok = downloadTextFile(`spray-record-${todayISO()}.csv`, buildSprayRecordCSV(rows), "text/csv");
+    if (!ok) setMsg("Download blocked — try Chrome or Edge.");
+  }
+  return h("div", { className: "bg-white rounded-xl border border-[#D8D9CE] p-5" },
+    h(SectionLabel, { icon: ClipboardList }, "Spray Record"),
+    h("p", { className: "text-xs text-[#6B7A5E] mb-3" },
+      `${rows.length} pesticide application${rows.length === 1 ? "" : "s"} on record. Print or export the log with the fields a pesticide record needs — date, location, product + EPA reg number, rate, target, applicator, and conditions. Restricted-use records must be kept 2 years.`),
+    h("label", { className: "flex items-center gap-2 text-xs mb-3" },
+      h("input", { type: "checkbox", checked: rupOnly, onChange: e => setRupOnly(e.target.checked), className: "w-4 h-4" }),
+      "Restricted-use products only"),
+    h("div", { className: "flex flex-wrap gap-2" },
+      h("button", { onClick: doPrint, disabled: rows.length === 0, className: "px-3 py-2 rounded text-sm flex items-center gap-1.5", style: { ...BTN_SOLID_STYLE, opacity: rows.length === 0 ? 0.5 : 1 } },
+        h(BookOpen, { size: 13, color: "#FFFFFF" }), " Print record"),
+      h("button", { onClick: doCsv, disabled: rows.length === 0, className: "px-3 py-2 rounded text-sm flex items-center gap-1.5 border border-[#D8D9CE] text-[#3A3D33]" },
+        h(Layers, { size: 13 }), " Download CSV")),
+    missingReg > 0 && h("p", { className: "text-[10px] text-[#B98A3F] mt-2" }, `${missingReg} row${missingReg === 1 ? "" : "s"} without an EPA reg number — those print as "from container" for you to fill from the jug. Set your applicator name in Sprayer Setup so new sprays are stamped with it.`),
+    msg && h("p", { className: "text-xs text-[#8C2E1F] mt-2" }, msg));
+}
+
 function computePestControl({ pests, useType, nearWater, distToWater, applications, rainExpected, daysSinceRain, daysSinceCut, month, weather }) {
   if (!pests || pests.length === 0) return { candidates: [], excludedByTiming: [] };
   const recentGroups = applications
@@ -1205,6 +1517,20 @@ function computePestControl({ pests, useType, nearWater, distToWater, applicatio
     }
     if ((hits.includes("fallarmyworm") || hits.includes("truearmyworm")) && daysSinceCut != null && daysSinceCut <= 16) {
       flags.push({ level: "info", text: `Fresh regrowth after a cutting (~${daysSinceCut} days) is prime armyworm feeding — walk the greening-up field and check for worms before they get ahead of you.` });
+    }
+    const capOz = productLabelData(p.id).annualMaxOz;
+    if (capOz != null) {
+      const yr = String(new Date().getFullYear());
+      const mid = (p.rateLowOz + p.rateHighOz) / 2;
+      const passes = applications.filter(a => a.herbicideId === p.id && (a.date || "").slice(0, 4) === yr).length;
+      if (passes > 0) {
+        const usedOz = passes * mid;
+        if (usedOz + mid > capOz + 0.001) {
+          flags.push({ level: "danger", text: `Annual max: ~${usedOz.toFixed(1)} ${p.rateUnit} of this already on the field in ${yr} (${passes} pass${passes > 1 ? "es" : ""}); label ceiling ${capOz}. Another pass at the label rate is over the limit.` });
+        } else if (usedOz + mid > capOz - mid) {
+          flags.push({ level: "warn", text: `Annual max: ~${usedOz.toFixed(1)} of ${capOz} ${p.rateUnit} used this year — about one pass left.` });
+        }
+      }
     }
 
     const score = hits.length * 10
@@ -2152,7 +2478,8 @@ async function loadAll() {
   } catch (e) {}
   out.sprayerSettings = {
     tankSizeGal: "",
-    defaultGpa: 15
+    defaultGpa: 15,
+    applicatorName: ""
   };
   try {
     const s = await window.storage.get("spray-planner:sprayer-settings");
@@ -2302,7 +2629,8 @@ function SprayPlanner() {
   const [fieldProfiles, setFieldProfiles] = useState({});
   const [sprayerSettings, setSprayerSettings] = useState({
     tankSizeGal: "",
-    defaultGpa: 15
+    defaultGpa: 15,
+    applicatorName: ""
   });
   const [saveError, setSaveError] = useState(null);
 
@@ -2721,6 +3049,8 @@ function SprayPlanner() {
     onDelete: deleteFieldProfile
   }), tab === "log" && /*#__PURE__*/React.createElement(LogTab, {
     applications: applications,
+    fieldProfiles: fieldProfiles,
+    sprayerSettings: sprayerSettings,
     onAdd: addApplication,
     onRemove: removeApplication
   }), tab === "cutting" && /*#__PURE__*/React.createElement(CuttingTab, {
@@ -2899,7 +3229,7 @@ function PestPlanTab(props) {
           key: fp.name, fieldPlan: fp, defaultOpen: pestPlans.length <= 2,
           selection: planSelections[fp.name] || [], onToggleProduct: pid => toggleProduct(fp.name, pid)
         })),
-        h(PestPlanSection, { pestPlans, planSelections, sprayerSettings, addApplications, selectedPests })));
+        h(PestPlanSection, { pestPlans, planSelections, sprayerSettings, addApplications, selectedPests, weather })));
 }
 
 function PestFieldPlanSection({ fieldPlan, defaultOpen, selection, onToggleProduct }) {
@@ -2963,7 +3293,7 @@ function analyzePestMix(selected) {
   return { flags, order, maxGraze, maxHay, maxRei, buffer: Math.max(0, ...selected.map(p => p.waterBufferFt)) };
 }
 
-function PestPlanSection({ pestPlans, planSelections, sprayerSettings, addApplications, selectedPests }) {
+function PestPlanSection({ pestPlans, planSelections, sprayerSettings, addApplications, selectedPests, weather }) {
   const h = React.createElement;
   const [gpa, setGpa] = useState(String(sprayerSettings.defaultGpa || 15));
   const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -3008,13 +3338,15 @@ function PestPlanSection({ pestPlans, planSelections, sprayerSettings, addApplic
   async function logIt() {
     const entries = [];
     for (const fp of activeFields) {
+      const snap = recordSnapshot(fp.profile, weather, sprayerSettings);
       for (const pid of (planSelections[fp.name] || [])) {
         const p = INSECTICIDES.find(x => x.id === pid);
         if (!p) continue;
         entries.push({
           date: logDate, field: fp.name, category: "insecticide",
           herbicideId: p.id, herbicideName: p.name, rate: p.rate,
-          pests: selectedPests, useType: fp.profile.useType || "pasture"
+          pests: selectedPests, useType: fp.profile.useType || "pasture",
+          ...snap
         });
       }
     }
@@ -3092,7 +3424,10 @@ function SprayerSetupCard({ sprayerSettings, updateSprayerSettings }) {
         h("input", { type: "number", value: sprayerSettings.tankSizeGal, onChange: e => updateSprayerSettings({ tankSizeGal: e.target.value }), placeholder: "e.g. 500" })),
       h("div", null, h("label", { className: "text-xs text-[#6B7A5E] mb-1 block" }, "Default spray volume (GPA)"),
         h("input", { type: "number", value: sprayerSettings.defaultGpa, onChange: e => updateSprayerSettings({ defaultGpa: e.target.value }) }))),
-    h("p", { className: "text-[10px] text-[#9CA391] mt-2" }, "Remembers your RoGator's setup between visits and feeds the plan's water calculation."));
+    h("div", { className: "mt-3" },
+      h("label", { className: "text-xs text-[#6B7A5E] mb-1 block" }, "Applicator name (goes on spray records)"),
+      h("input", { type: "text", value: sprayerSettings.applicatorName || "", onChange: e => updateSprayerSettings({ applicatorName: e.target.value }), placeholder: "e.g. Noah Hertel" })),
+    h("p", { className: "text-[10px] text-[#9CA391] mt-2" }, "Remembers your RoGator's setup between visits, feeds the plan's water calculation, and stamps each logged spray for the printable record."));
 }
 
 /* ============================================================
@@ -3113,7 +3448,7 @@ function FertilizerPlanTab(props) {
   const h = React.createElement;
   const {
     fieldProfiles, selectedFieldNames, toggleField, fertNeeds, toggleFertNeed,
-    fertForm, setFertForm, addApplications,
+    fertForm, setFertForm, addApplications, sprayerSettings,
     month, setMonth, recentTemp, setRecentTemp, daysSinceRain, setDaysSinceRain, rainExpected, setRainExpected,
     fertPlans, zip, setZip, weather, weatherStatus, weatherError, loadWeather
   } = props;
@@ -3155,7 +3490,7 @@ function FertilizerPlanTab(props) {
       : h("div", { className: "space-y-5" },
         h(SectionLabel, { icon: ClipboardList }, fertPlans.length > 1 ? `Field Plans — ${fertPlans.length} Fields` : "Field Plan"),
         fertPlans.map(fp => h(FertFieldSection, { key: fp.name, fieldPlan: fp, defaultOpen: fertPlans.length <= 2, form: fertForm })),
-        h(FertilizerPlanSection, { fertPlans, form: fertForm, addApplications })));
+        h(FertilizerPlanSection, { fertPlans, form: fertForm, addApplications, weather, sprayerSettings })));
 }
 
 function FertFieldSection({ fieldPlan, defaultOpen, form }) {
@@ -3194,7 +3529,7 @@ function FertFieldSection({ fieldPlan, defaultOpen, form }) {
 /* Combined fertilizer plan across every selected field. Because rates are
    driven by each field's own soil test / yield goal, fields can need
    different amounts — this breaks the totals out per field and flags it. */
-function FertilizerPlanSection({ fertPlans, form, addApplications }) {
+function FertilizerPlanSection({ fertPlans, form, addApplications, weather, sprayerSettings }) {
   const h = React.createElement;
   const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [loggedInfo, setLoggedInfo] = useState(null);
@@ -3245,7 +3580,8 @@ function FertilizerPlanSection({ fertPlans, form, addApplications }) {
         herbicideName: `Fertilizer — ${summary || "per plan"}`,
         rate: `${form} · ${fp.profile.acreage} ac`,
         nutrients: fp.plan.recs.filter(r => r.perAcre).map(r => ({ n: r.nutrient, rate: r.perAcre, unit: r.unit })),
-        useType: fp.plan.useType
+        useType: fp.plan.useType,
+        ...recordSnapshot(fp.profile, weather, sprayerSettings)
       };
     });
     setLogging(true);
@@ -3509,7 +3845,8 @@ function PlanTab(props) {
     planSelections: planSelections,
     sprayerSettings: sprayerSettings,
     addApplications: addApplications,
-    selectedWeeds: selectedWeeds
+    selectedWeeds: selectedWeeds,
+    weather: weather
   })));
 }
 
@@ -3624,7 +3961,8 @@ function SprayPlanSection({
   planSelections,
   sprayerSettings,
   addApplications,
-  selectedWeeds
+  selectedWeeds,
+  weather
 }) {
   const [gpa, setGpa] = useState(String(sprayerSettings.defaultGpa || 15));
   const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -3695,17 +4033,20 @@ function SprayPlanSection({
     const entries = [];
     for (const fp of activeFields) {
       const ids = planSelections[fp.name] || [];
+      const snap = recordSnapshot(fp.profile, weather, sprayerSettings);
       for (const hid of ids) {
         const h = HERBICIDES.find(x => x.id === hid);
         if (!h) continue;
         entries.push({
           date: logDate,
           field: fp.name,
+          category: "herbicide",
           herbicideId: h.id,
           herbicideName: h.name,
           rate: h.rate,
           weeds: selectedWeeds,
-          useType: fp.profile.useType || "pasture"
+          useType: fp.profile.useType || "pasture",
+          ...snap
         });
       }
     }
@@ -3896,9 +4237,12 @@ function SprayPlanSection({
 
 function LogTab({
   applications,
+  fieldProfiles,
+  sprayerSettings,
   onAdd,
   onRemove
 }) {
+  const h = React.createElement;
   const [form, setForm] = useState({
     date: new Date().toISOString().slice(0, 10),
     field: "",
@@ -3967,7 +4311,7 @@ function LogTab({
     },
     className: "mt-3 px-4 py-2 rounded text-sm font-medium",
     style: BTN_SOLID_STYLE
-  }, "Add to log")), /*#__PURE__*/React.createElement("div", {
+  }, "Add to log")), h(SprayRecordCard, { applications: applications, fieldProfiles: fieldProfiles }), /*#__PURE__*/React.createElement("div", {
     className: "bg-white rounded-xl border border-[#D8D9CE] overflow-hidden"
   }, /*#__PURE__*/React.createElement(SectionLabel, {
     icon: History
@@ -4133,6 +4477,84 @@ function CuttingTab({
 /* ============================================================
    FIELDS TAB — per-field memory: profile + full history, persists between sessions
    ============================================================ */
+
+function RestrictionsBlock({ name, applications }) {
+  const h = React.createElement;
+  const r = computeFieldRestrictions(name, applications);
+  const hasSpray = (applications || []).some(a => a.field === name && a.herbicideId !== "fertilizer");
+  if (!hasSpray) return null;
+  if (!r.hasAny) {
+    return h("div", { className: "text-xs rounded px-2.5 py-1.5 bg-[#EAF0E6] text-[#3F5A34] flex items-start gap-1.5" },
+      h(Check, { size: 13, className: "mt-0.5 shrink-0" }),
+      h("span", null, "No grazing, haying, or carryover restriction still in effect from the logged applications."));
+  }
+  const line = (label, s) => {
+    if (s.prohibited) return h("div", null, h("b", null, label + ": "), "not allowed — ", s.prohibited.map(x => shortProductName(x.product)).join(", "), " prohibits it once applied here.");
+    if (s.vague && s.until && s.until > todayISO()) return h("div", null, h("b", null, label + ": "), `${shortProductName(s.product)} (applied ${s.date}) has no fixed interval on the label text here — check the label before you ${label === "Hay" ? "cut" : "turn stock in"}.`);
+    if (s.until && s.until > todayISO()) return h("div", null, h("b", null, label + ": "), `wait until ${s.until} — ${s.daysLeft} more day${s.daysLeft === 1 ? "" : "s"} (${shortProductName(s.product)}, applied ${s.date}).`);
+    return null;
+  };
+  return h("div", { className: "rounded-lg border border-[#E8D9B8] bg-[#FCF7EA] p-3 space-y-1 text-xs text-[#5F4A17]" },
+    h("div", { className: "font-semibold flex items-center gap-1.5 uppercase tracking-wide text-[10px]" }, h(AlertTriangle, { size: 12 }), "Restrictions in effect"),
+    line("Grazing", r.graze),
+    line("Hay", r.hay),
+    r.carry.until && r.carry.until > todayISO() && h("div", null, h("b", null, "Aminopyralid carryover: "), `hay, manure, and compost off this field are restricted until about ${r.carry.until} — ${shortProductName(r.carry.product)}. Don't sell, give away, or spread it off-property before then.`),
+    h("div", { className: "text-[10px] text-[#9A8A5E] pt-0.5" }, "From logged application dates + label intervals. The container label is the legal source — verify before you graze or cut."));
+}
+
+function BackupCard({ applications, cuttings, fieldProfiles }) {
+  const h = React.createElement;
+  const [msg, setMsg] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const nf = Object.keys(fieldProfiles || {}).length;
+  async function doExport() {
+    setBusy(true);
+    const payload = await exportAllData();
+    const ok = downloadTextFile(`sprayplan-backup-${todayISO()}.json`, JSON.stringify(payload, null, 2), "application/json");
+    setBusy(false);
+    setMsg(ok
+      ? { level: "ok", text: `Backup downloaded (${Object.keys(payload.data).length} data sets).` }
+      : { level: "err", text: "Your browser blocked the download — try Chrome or Edge." });
+  }
+  function pickFile(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      let obj;
+      try { obj = JSON.parse(reader.result); } catch (err) { setMsg({ level: "err", text: "That file isn't valid JSON." }); return; }
+      if (!obj || obj.app !== "SprayPlan" || !obj.data) { setMsg({ level: "err", text: "That doesn't look like a SprayPlan backup file." }); return; }
+      const c = {
+        apps: (obj.data["spray-planner:applications"] || []).length,
+        cuts: (obj.data["spray-planner:cuttings"] || []).length,
+        fields: Object.keys(obj.data["spray-planner:field-profiles"] || {}).length
+      };
+      if (!window.confirm(`Restore this backup? It REPLACES everything currently in this browser with:\n\n  ${c.apps} applications\n  ${c.cuts} cuttings\n  ${c.fields} field profiles\n\nExport your current data first if you're not sure.`)) return;
+      setBusy(true);
+      try {
+        const n = await importAllData(obj);
+        setMsg({ level: "ok", text: `Restored ${n} data sets. Reloading…` });
+        setTimeout(() => location.reload(), 900);
+      } catch (err) {
+        setBusy(false);
+        setMsg({ level: "err", text: (err && err.message) || "Restore failed." });
+      }
+    };
+    reader.readAsText(file);
+  }
+  return h("div", { className: "bg-white rounded-xl border border-[#D8D9CE] p-5" },
+    h(SectionLabel, { icon: Layers }, "Data & Backup"),
+    h("p", { className: "text-xs text-[#6B7A5E] mb-3" },
+      `Everything you've entered lives in this browser only — ${applications.length} application${applications.length === 1 ? "" : "s"}, ${cuttings.length} cutting${cuttings.length === 1 ? "" : "s"}, ${nf} field profile${nf === 1 ? "" : "s"}. Clearing site data, switching browsers, or a wiped device loses it. Download a backup regularly — and keep one, since restricted-use records have to be kept for two years.`),
+    h("div", { className: "flex flex-wrap gap-2" },
+      h("button", { onClick: doExport, disabled: busy, className: "px-3 py-2 rounded text-sm flex items-center gap-1.5", style: { ...BTN_SOLID_STYLE, opacity: busy ? 0.6 : 1 } },
+        h(Check, { size: 13, color: "#FFFFFF" }), " Download backup (.json)"),
+      h("label", { className: "px-3 py-2 rounded text-sm flex items-center gap-1.5 cursor-pointer border border-[#D8D9CE] text-[#3A3D33]" },
+        h(Plus, { size: 13 }), " Restore from file",
+        h("input", { type: "file", accept: "application/json,.json", onChange: pickFile, className: "hidden" }))),
+    msg && h("div", { className: `text-xs mt-2 rounded px-2.5 py-1.5 ${msg.level === "ok" ? "bg-[#EAF0E6] text-[#2B4C3F]" : "bg-[#FBEAE6] text-[#8C2E1F]"}` }, msg.text));
+}
 
 function FieldsTab({
   applications,
@@ -4370,7 +4792,7 @@ function FieldsTab({
       style: BTN_GHOST_STYLE
     }, /*#__PURE__*/React.createElement(Pencil, {
       size: 12
-    }), " Edit")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    }), " Edit")), h(RestrictionsBlock, { name: name, applications: applications }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
       className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-2 flex items-center gap-1"
     }, /*#__PURE__*/React.createElement(Layers, {
       size: 12
@@ -4404,7 +4826,7 @@ function FieldsTab({
     }, /*#__PURE__*/React.createElement(Trash2, {
       size: 11
     }), " Remove field profile (history stays in the logs)")));
-  }));
+  }), h(BackupCard, { applications: applications, cuttings: cuttings, fieldProfiles: fieldProfiles }));
 }
 
 /* ============================================================
