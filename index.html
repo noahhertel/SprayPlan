@@ -1008,10 +1008,10 @@ const INSECTICIDES = [
     formulation: "ec",
     rateLowOz: 1.28, rateHighOz: 1.92, rateUnit: "fl oz/ac (Warrior II)",
     rate: "Warrior II 1.28–1.92 fl oz/ac",
-    grazing: "0 days", hay: "0 days", rei: 24,
+    grazing: "0 days", hay: "7 days", rei: 24,
     waterBufferFt: 150, beeTox: "high", restrictedUse: true,
     timingWindow: "Fast knockdown, short residual (3–7 days). Loses punch above ~90°F.",
-    notes: "Cheap, broad, fast — but fall armyworm has documented pyrethroid resistance in parts of the South, so it can underperform on a heavy worm flight. Restricted-use, highly toxic to bees and to fish/aquatic life (150 ft buffer near your lake). Better suited to grasshoppers, beetles, and aphids than to armyworms.",
+    notes: "Cheap, broad, fast — but fall armyworm has documented pyrethroid resistance in parts of the South, so it can underperform on a heavy worm flight. No grazing wait, but hold cutting for hay 7 days (per the Warrior II label — a 0-day hay wait is a common mix-up with the grazing interval). Restricted-use, highly toxic to bees and to fish/aquatic life (150 ft buffer near your lake). Better suited to grasshoppers, beetles, and aphids than to armyworms.",
   },
   {
     id: "zetacypermethrin",
@@ -1063,8 +1063,8 @@ const INSECTICIDES = [
     use: ["pasture", "hay"],
     formulation: "soluble",
     rateLowOz: 1, rateHighOz: 2, rateUnit: "fl oz/ac",
-    rate: "1–2 fl oz/ac (rangeland grasshopper program rate)",
-    grazing: "0 days", hay: "0 days", rei: 12,
+    rate: "1–2 fl oz/ac (rangeland grasshopper program rate); do not exceed ~2 oz/ac per cutting",
+    grazing: "0 days", hay: "1 day", rei: 12,
     waterBufferFt: 25, beeTox: "low", restrictedUse: false,
     timingWindow: "Young grasshopper nymphs (3rd instar or smaller) — will not touch adults.",
     notes: "The area-wide rangeland grasshopper tool: very low rate, cheap per acre, low hazard to bees and wildlife, kills only molting insects. Timing is everything — it has to go on while hoppers are small. Useless once they're adults and flying.",
@@ -1106,10 +1106,10 @@ const INSECTICIDES = [
     formulation: "bait",
     rateLowOz: 16, rateHighOz: 24, rateUnit: "oz/ac (broadcast bait)",
     rate: "1–1.5 lb/ac broadcast, or 2–5 Tbsp per mound",
-    grazing: "0 days", hay: "0 days", rei: 0,
+    grazing: "0 days", hay: "7 days", rei: 0,
     waterBufferFt: 25, beeTox: "low", restrictedUse: false,
     timingWindow: "Warm, dry ground (75–90°F), ants actively foraging, no rain for 24–48 hr, bait fresh.",
-    notes: "This is a BAIT, not a spray — broadcast with a hand or ATV spreader, or spoon onto mounds. Extinguish Plus (methoprene + hydramethylnon) is cleared for pasture and hayfields with no grazing restriction. Spring and fall are the effective windows; results take a few weeks. Don't water it in or spread before rain.",
+    notes: "This is a BAIT, not a spread-and-forget spray — broadcast with a hand or ATV spreader, or spoon onto mounds. Extinguish Plus (methoprene + hydramethylnon) is cleared for pasture and hayfields with no grazing restriction for beef/companion animals, but the label does require a 7-day wait before baling or cutting hay. Cap is 8 lb/ac/yr, max 4 applications/yr, minimum 90 days between treatments. Spring and fall are the effective windows; results take a few weeks. Don't water it in or spread within 6 hrs of rain — wet bait gets ignored. Amdro Pro is a different, hydramethylnon-only formulation with its own label — check its specific PHI separately rather than assuming it matches Extinguish Plus.",
   },
 ];
 
@@ -1121,6 +1121,19 @@ const PEST_SEASON = {
   stemmaggot: { months: ["July", "August", "September"], note: "stem maggot damage shows up in mid to late summer on regrowth after a cutting" },
   aphid: { months: ["March", "April", "May", "September", "October", "November"], note: "aphids build in the cooler shoulder seasons, not the heat of summer" },
 };
+
+// Pulls the worst-case (largest) number of days out of a PHI string like "14 days",
+// "0–30 days by rate", or "40-day cutting restriction" — parseInt alone would grab
+// only the first number ("0" out of "0–30 days by rate"), silently hiding the
+// higher end of a rate-dependent restriction. Returns 0 for non-numeric text like
+// "Check current label — varies" (a safe-but-uninformative fallback, not a claim
+// that the restriction is actually zero).
+function phiDays(str) {
+  if (str == null) return 0;
+  const nums = String(str).match(/\d+/g);
+  if (!nums) return 0;
+  return Math.max(...nums.map(Number));
+}
 
 function computePestControl({ pests, useType, nearWater, distToWater, applications, rainExpected, daysSinceRain, month, weather }) {
   if (!pests || pests.length === 0) return { candidates: [], excludedByTiming: [] };
@@ -1162,7 +1175,7 @@ function computePestControl({ pests, useType, nearWater, distToWater, applicatio
     } else if (p.beeTox === "moderate") {
       flags.push({ level: "info", text: "Toxic to bees while the spray is wet; dries safe within a few hours. Spray in the evening if there's blooming cover in the stand." });
     }
-    if ((Number(p.grazing) || 0) > 0 || (Number(p.hay) || 0) > 0) {
+    if (phiDays(p.grazing) > 0 || phiDays(p.hay) > 0) {
       flags.push({ level: "info", text: `Pre-harvest interval: ${p.grazing} before grazing, ${p.hay} before cutting hay. Restricted-entry ${p.rei} hr.` });
     }
     if (rainExpected && p.formulation !== "bait") {
@@ -1312,8 +1325,8 @@ function computeFertilizerPlan({ needs, soilTest, forage, yieldGoalTons, useType
     let kRate = 60, basis = "no soil test entered — 60 lb K₂O/ac/yr is a typical starting rate; hay fields especially should soil test, K is the one they run short on.";
     if (st && st.kPpm !== "" && st.kPpm != null) {
       const ppm = Number(st.kPpm);
-      const removal = Math.round(yg * 50);
-      if (ppm >= 200) { kRate = use === "hay" ? removal : 0; basis = `soil K ${ppm} ppm is high — ${use === "hay" ? `replace only hay removal, ~${kRate} lb K₂O/ac/yr (~50 lb/ton)` : "no K needed for pasture this year"}.`; }
+      const removal = Math.round(yg * 42);
+      if (ppm >= 200) { kRate = use === "hay" ? removal : 0; basis = `soil K ${ppm} ppm is high — ${use === "hay" ? `replace only hay removal, ~${kRate} lb K₂O/ac/yr (~42 lb/ton)` : "no K needed for pasture this year"}.`; }
       else if (ppm >= 125) { kRate = use === "hay" ? removal : 40; basis = `soil K ${ppm} ppm is medium — ${use === "hay" ? `match removal, ~${kRate} lb K₂O/ac/yr` : "~40 lb K₂O/ac/yr"}.`; }
       else { kRate = use === "hay" ? Math.max(100, removal + 30) : 60; basis = `soil K ${ppm} ppm is low — ~${kRate} lb K₂O/ac/yr (removal plus some build-up).`; }
     }
@@ -1357,7 +1370,7 @@ function computeFertilizerPlan({ needs, soilTest, forage, yieldGoalTons, useType
     flags.push({ level: "warn", text: `Nitrogen runoff and leaching reach the lake too, especially on sandy ground. Split applications (never more than ~60–70 lb N/ac at once), skip a buffer strip along the shoreline, and don't spread with heavy rain in the forecast${hoursToRain != null ? ` — currently ~${hoursToRain} hr out` : ""}.` });
   }
   if (use === "hay") {
-    flags.push({ level: "info", text: "Every ton of bermuda hay hauled off takes roughly 50 lb N, 15 lb P₂O₅, and 50 lb K₂O with it. Potassium is the one hay fields mine out first — a soil test every 2–3 years keeps the stand from thinning." });
+    flags.push({ level: "info", text: "Every ton of bermuda hay hauled off takes roughly 50 lb N, 15 lb P₂O₅, and 42 lb K₂O with it (Texas A&M AgriLife Overton figures) — potassium is the one hay fields mine out first, since it's the nutrient most easily and quickly depleted by continuous cutting. A soil test every 2–3 years keeps the stand from thinning." });
   }
   if (!st) {
     flags.push({ level: "info", text: "These are starting rates from forage type and yield goal only. A routine soil test (~$15–20 through Texas A&M AgriLife) pays for itself the first year by right-sizing P, K, and lime instead of guessing." });
@@ -2901,8 +2914,8 @@ function analyzePestMix(selected) {
     soluble: selected.filter(p => p.formulation === "soluble"),
     ec: selected.filter(p => p.formulation === "ec")
   };
-  const maxGraze = Math.max(0, ...selected.map(p => Number(p.grazing) || 0));
-  const maxHay = Math.max(0, ...selected.map(p => Number(p.hay) || 0));
+  const maxGraze = Math.max(0, ...selected.map(p => phiDays(p.grazing)));
+  const maxHay = Math.max(0, ...selected.map(p => phiDays(p.hay)));
   const maxRei = Math.max(0, ...selected.map(p => Number(p.rei) || 0));
   return { flags, order, maxGraze, maxHay, maxRei, buffer: Math.max(0, ...selected.map(p => p.waterBufferFt)) };
 }
