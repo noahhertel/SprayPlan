@@ -283,6 +283,14 @@ const WEEDS = [{
   id: "huisache",
   name: "Huisache",
   type: "brush"
+}, {
+  id: "knotrootbristlegrass",
+  name: "Knotroot Bristlegrass / Foxtail",
+  type: "grass"
+}, {
+  id: "commonmilkweed",
+  name: "Common Milkweed",
+  type: "broadleaf"
 }];
 
 // grazingRestrictionDays / hayRestrictionDays: null = none on label (beef cattle, general),
@@ -298,7 +306,7 @@ const HERBICIDES = [{
   id: "24d",
   name: "2,4-D amine (e.g. Weedar 64)",
   moa: "4 (Synthetic Auxin)",
-  targets: ["pigweed", "ragweed", "cocklebur", "dock", "plantain", "thistle", "horsenettle", "buttercup", "bitterweed", "croton", "marestail", "morningglory", "goldenrod", "henbit"],
+  targets: ["pigweed", "ragweed", "cocklebur", "dock", "plantain", "thistle", "horsenettle", "buttercup", "bitterweed", "croton", "marestail", "morningglory", "goldenrod", "henbit", "commonmilkweed"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 16,
@@ -316,7 +324,7 @@ const HERBICIDES = [{
   id: "grazonnext",
   name: "GrazonNext HL (aminopyralid + 2,4-D)",
   moa: "4",
-  targets: ["thistle", "ragweed", "horsenettle", "dewberry", "cocklebur", "dock", "sericea", "buttercup", "plantain", "pigweed", "bitterweed", "croton", "broomweed", "marestail", "morningglory", "goldenrod", "coffeesenna"],
+  targets: ["thistle", "ragweed", "horsenettle", "dewberry", "cocklebur", "dock", "sericea", "buttercup", "plantain", "pigweed", "bitterweed", "croton", "broomweed", "marestail", "morningglory", "goldenrod", "coffeesenna", "commonmilkweed"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 19.2,
@@ -334,7 +342,7 @@ const HERBICIDES = [{
   id: "milestone",
   name: "Milestone (aminopyralid)",
   moa: "4",
-  targets: ["thistle", "ragweed", "dock", "sericea", "horsenettle", "broomweed", "goldenrod"],
+  targets: ["thistle", "ragweed", "dock", "sericea", "horsenettle", "broomweed", "goldenrod", "commonmilkweed"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 3,
@@ -388,7 +396,7 @@ const HERBICIDES = [{
   id: "pastora",
   name: "Pastora (metsulfuron + nicosulfuron)",
   moa: "2 (ALS inhibitor)",
-  targets: ["johnsongrass", "crabgrass", "pigweed", "ragweed", "horsenettle", "sandbur", "vaseygrass", "bahiagrass", "goosegrass", "barnyardgrass", "texaspanicum", "ryegrass", "signalgrass", "rescuegrass"],
+  targets: ["johnsongrass", "crabgrass", "pigweed", "ragweed", "horsenettle", "sandbur", "vaseygrass", "bahiagrass", "goosegrass", "barnyardgrass", "texaspanicum", "ryegrass", "signalgrass", "rescuegrass", "knotrootbristlegrass"],
   use: ["pasture", "hay"],
   formulation: "dry",
   rateLowOz: 1,
@@ -406,7 +414,7 @@ const HERBICIDES = [{
   id: "glyphosate",
   name: "Glyphosate (e.g. Roundup PowerMax)",
   moa: "9 (EPSP synthase inhibitor)",
-  targets: ["dallisgrass", "johnsongrass", "bahiagrass", "ryegrass", "sandbur", "crabgrass", "vaseygrass", "smutgrass", "goosegrass", "barnyardgrass", "texaspanicum", "nutsedge", "krbluestem", "broomsedge", "rescuegrass", "littlebarley", "signalgrass", "chinesetallow"],
+  targets: ["dallisgrass", "johnsongrass", "bahiagrass", "ryegrass", "sandbur", "crabgrass", "vaseygrass", "smutgrass", "goosegrass", "barnyardgrass", "texaspanicum", "nutsedge", "krbluestem", "broomsedge", "rescuegrass", "littlebarley", "signalgrass", "chinesetallow", "knotrootbristlegrass", "commonmilkweed"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 12,
@@ -424,7 +432,7 @@ const HERBICIDES = [{
   id: "imazapic",
   name: "Imazapic (Panoramic 2SL / Impose / Plateau)",
   moa: "2 (ALS inhibitor)",
-  targets: ["vaseygrass", "sandbur", "bahiagrass", "dallisgrass", "smutgrass", "barnyardgrass", "texaspanicum", "goosegrass", "crabgrass", "ryegrass", "broomsedge", "signalgrass", "littlebarley", "rescuegrass", "pigweed", "ragweed"],
+  targets: ["vaseygrass", "sandbur", "bahiagrass", "dallisgrass", "smutgrass", "barnyardgrass", "texaspanicum", "goosegrass", "crabgrass", "ryegrass", "broomsedge", "signalgrass", "littlebarley", "rescuegrass", "pigweed", "ragweed", "knotrootbristlegrass"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 4,
@@ -442,7 +450,7 @@ const HERBICIDES = [{
   id: "pendimethalin",
   name: "Pendimethalin (Prowl H2O)",
   moa: "3 (Microtubule inhibitor)",
-  targets: ["crabgrass", "sandbur", "ryegrass", "goosegrass", "barnyardgrass", "texaspanicum", "signalgrass", "littlebarley", "rescuegrass", "pigweed"],
+  targets: ["crabgrass", "sandbur", "ryegrass", "goosegrass", "barnyardgrass", "texaspanicum", "signalgrass", "littlebarley", "rescuegrass", "pigweed", "knotrootbristlegrass"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 35.2,
@@ -460,7 +468,7 @@ const HERBICIDES = [{
   id: "indaziflam",
   name: "Indaziflam (Rezilon)",
   moa: "29 (Cellulose biosynthesis inhibitor)",
-  targets: ["sandbur", "crabgrass", "ryegrass", "goosegrass", "rescuegrass", "littlebarley", "signalgrass"],
+  targets: ["sandbur", "crabgrass", "ryegrass", "goosegrass", "rescuegrass", "littlebarley", "signalgrass", "knotrootbristlegrass"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 5,
@@ -568,7 +576,7 @@ const HERBICIDES = [{
   id: "chaparral",
   name: "Chaparral (aminopyralid + metsulfuron)",
   moa: "4 + 2",
-  targets: ["dewberry", "thistle", "ragweed", "horsenettle", "sericea", "buttercup", "cocklebur", "dock", "plantain", "pigweed", "bahiagrass", "bitterweed", "broomweed", "marestail", "goldenrod"],
+  targets: ["dewberry", "thistle", "ragweed", "horsenettle", "sericea", "buttercup", "cocklebur", "dock", "plantain", "pigweed", "bahiagrass", "bitterweed", "broomweed", "marestail", "goldenrod", "commonmilkweed"],
   use: ["pasture", "hay"],
   formulation: "dry",
   rateLowOz: 2,
@@ -586,7 +594,7 @@ const HERBICIDES = [{
   id: "surmount",
   name: "Surmount (picloram + fluroxypyr)",
   moa: "4",
-  targets: ["mesquite", "privet", "pricklypear", "dewberry", "horsenettle", "thistle", "sericea", "macartneyrose", "huisache", "silverleafnightshade"],
+  targets: ["mesquite", "privet", "pricklypear", "dewberry", "horsenettle", "thistle", "sericea", "macartneyrose", "huisache", "silverleafnightshade", "commonmilkweed"],
   use: ["pasture"],
   formulation: "soluble",
   rateLowOz: 24,
@@ -604,7 +612,7 @@ const HERBICIDES = [{
   id: "dicamba24d",
   name: "2,4-D + dicamba (e.g. Weedmaster, Brash, Range Star)",
   moa: "4 (Synthetic Auxin)",
-  targets: ["pigweed", "ragweed", "cocklebur", "dock", "plantain", "thistle", "horsenettle", "buttercup", "bitterweed", "croton", "marestail", "morningglory", "goldenrod", "broomweed"],
+  targets: ["pigweed", "ragweed", "cocklebur", "dock", "plantain", "thistle", "horsenettle", "buttercup", "bitterweed", "croton", "marestail", "morningglory", "goldenrod", "broomweed", "commonmilkweed"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 16, rateHighOz: 64, rateUnit: "fl oz/ac",
@@ -620,7 +628,7 @@ const HERBICIDES = [{
   id: "crossbow",
   name: "2,4-D + triclopyr ester (Crossbow)",
   moa: "4 (Synthetic Auxin)",
-  targets: ["dewberry", "smilax", "privet", "mesquite", "macartneyrose", "chinesetallow", "thistle", "ragweed", "horsenettle", "dock", "plantain", "buttercup", "cocklebur", "bitterweed", "croton"],
+  targets: ["dewberry", "smilax", "privet", "mesquite", "macartneyrose", "chinesetallow", "thistle", "ragweed", "horsenettle", "dock", "plantain", "buttercup", "cocklebur", "bitterweed", "croton", "commonmilkweed"],
   use: ["pasture", "hay"],
   formulation: "ec",
   rateLowOz: 48, rateHighOz: 128, rateUnit: "fl oz/ac",
@@ -636,7 +644,7 @@ const HERBICIDES = [{
   id: "duracor",
   name: "DuraCor (aminopyralid + florpyrauxifen-benzyl)",
   moa: "4 (Synthetic Auxin — aminopyralid + arylpicolinate)",
-  targets: ["thistle", "ragweed", "horsenettle", "dewberry", "cocklebur", "dock", "sericea", "buttercup", "plantain", "pigweed", "bitterweed", "croton", "marestail", "morningglory", "goldenrod", "broomweed", "coffeesenna"],
+  targets: ["thistle", "ragweed", "horsenettle", "dewberry", "cocklebur", "dock", "sericea", "buttercup", "plantain", "pigweed", "bitterweed", "croton", "marestail", "morningglory", "goldenrod", "broomweed", "coffeesenna", "commonmilkweed"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 12, rateHighOz: 20, rateUnit: "fl oz/ac",
@@ -652,7 +660,7 @@ const HERBICIDES = [{
   id: "terravue",
   name: "TerraVue (aminopyralid + metsulfuron)",
   moa: "4 + 2 (Synthetic Auxin + ALS inhibitor)",
-  targets: ["thistle", "ragweed", "horsenettle", "dewberry", "cocklebur", "dock", "sericea", "buttercup", "plantain", "pigweed", "bahiagrass", "bitterweed", "croton", "marestail", "goldenrod", "broomweed", "coffeesenna"],
+  targets: ["thistle", "ragweed", "horsenettle", "dewberry", "cocklebur", "dock", "sericea", "buttercup", "plantain", "pigweed", "bahiagrass", "bitterweed", "croton", "marestail", "goldenrod", "broomweed", "coffeesenna", "commonmilkweed"],
   use: ["pasture", "hay"],
   formulation: "dry",
   rateLowOz: 1, rateHighOz: 2.85, rateUnit: "oz/ac (dry wt.)",
@@ -668,7 +676,7 @@ const HERBICIDES = [{
   id: "metsulfuron",
   name: "Metsulfuron (MSM 60, Escort XP, Patriot)",
   moa: "2 (ALS inhibitor)",
-  targets: ["bahiagrass", "ragweed", "thistle", "cocklebur", "dock", "plantain", "buttercup", "sericea", "horsenettle", "privet", "henbit", "chickweed", "marestail", "broomweed"],
+  targets: ["bahiagrass", "ragweed", "thistle", "cocklebur", "dock", "plantain", "buttercup", "sericea", "horsenettle", "privet", "henbit", "chickweed", "marestail", "broomweed", "commonmilkweed"],
   use: ["pasture", "hay"],
   formulation: "dry",
   rateLowOz: 0.1, rateHighOz: 1, rateUnit: "oz/ac (dry wt.)",
@@ -716,7 +724,7 @@ const HERBICIDES = [{
   id: "quinclorac",
   name: "Quinclorac (Facet L)",
   moa: "4 (Synthetic Auxin — quinoline carboxylic acid)",
-  targets: ["crabgrass", "barnyardgrass", "sandbur", "signalgrass", "texaspanicum", "morningglory"],
+  targets: ["crabgrass", "barnyardgrass", "sandbur", "signalgrass", "texaspanicum", "morningglory", "knotrootbristlegrass"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 21, rateHighOz: 32, rateUnit: "fl oz/ac",
@@ -732,7 +740,7 @@ const HERBICIDES = [{
   id: "grazonpd",
   name: "Grazon P+D (picloram + 2,4-D)",
   moa: "4 (Synthetic Auxin)",
-  targets: ["thistle", "ragweed", "horsenettle", "cocklebur", "dock", "dewberry", "mesquite", "privet", "sericea", "buttercup", "pricklypear", "macartneyrose", "huisache", "silverleafnightshade", "bitterweed", "broomweed", "goldenrod"],
+  targets: ["thistle", "ragweed", "horsenettle", "cocklebur", "dock", "dewberry", "mesquite", "privet", "sericea", "buttercup", "pricklypear", "macartneyrose", "huisache", "silverleafnightshade", "bitterweed", "broomweed", "goldenrod", "commonmilkweed"],
   use: ["pasture", "hay"],
   formulation: "soluble",
   rateLowOz: 32, rateHighOz: 128, rateUnit: "fl oz/ac",
@@ -748,7 +756,7 @@ const HERBICIDES = [{
   id: "picloram",
   name: "Picloram (Tordon 22K)",
   moa: "4 (Synthetic Auxin)",
-  targets: ["mesquite", "privet", "pricklypear", "dewberry", "thistle", "horsenettle", "sericea", "dock", "ragweed", "macartneyrose", "huisache", "silverleafnightshade", "yaupon", "broomweed"],
+  targets: ["mesquite", "privet", "pricklypear", "dewberry", "thistle", "horsenettle", "sericea", "dock", "ragweed", "macartneyrose", "huisache", "silverleafnightshade", "yaupon", "broomweed", "commonmilkweed"],
   use: ["pasture"],
   formulation: "soluble",
   rateLowOz: 16, rateHighOz: 64, rateUnit: "fl oz/ac",
@@ -778,7 +786,7 @@ const HERBICIDES = [{
   restrictedUse: false
 }];
 const SOIL_TYPES = ["Sandy", "Sandy Loam", "Loam", "Clay Loam", "Clay", "Bottomland / Poorly Drained"];
-const GRASS_TYPES = ["Common Bermudagrass", "Hybrid Bermudagrass (e.g. Tifton 85)", "Bahiagrass", "Bermuda/Bahia Mix", "Native/Unimproved"];
+const GRASS_TYPES = ["Common Bermudagrass", "Hybrid Bermudagrass (e.g. Tifton 85)", "Bahiagrass", "Bermuda/Bahia Mix", "Bermuda + Ryegrass (winter overseed)", "Annual Ryegrass (winter cover/graze)", "Native/Unimproved"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const DORMANT_MONTHS = ["November", "December", "January", "February", "March"];
 
@@ -806,6 +814,16 @@ const TIMING_RULES = {
     note: "the label calls for 100% bermudagrass green-up before spraying — applying too early adds injury risk for no control benefit"
   }
 };
+// Weeds with no reliable selective control in an established bermuda / bahia stand.
+// The honest answer is a non-selective (glyphosate) program done by timing or
+// method so it doesn't take the grass with it — surfaced whenever one is selected.
+const NONSELECTIVE_ONLY = {
+  knotrootbristlegrass: "No selective herbicide clears knotroot bristlegrass from bermuda or bahia — it's a perennial that comes back from knotty rhizomes, and the products that touch it (glyphosate) hit the grass too. Realistic options: (1) spot-spray or wick/wiper glyphosate onto plants standing above short grass; (2) broadcast glyphosate during full grass dormancy (roughly Nov–Mar) — bristlegrass often greens up ahead of bermuda and can be caught then; (3) a low glyphosate rate right after a hay cutting, before bermuda regrows, to set the stand back and stop seed. Pastora / Impose give partial suppression at best; a heavy stand usually needs a spray-out and replant.",
+  dallisgrass: "Dallisgrass has no selective option in bermuda now that most MSMA pasture uses are cancelled. Use MSMA only where it is still legally labeled for pasture in your state (two passes 7–10 days apart); otherwise spot / wiper glyphosate, a broadcast glyphosate pass in full dormancy, or a low glyphosate rate right after cutting before bermuda regrowth. Preventing seed set matters as much as killing the plant.",
+  broomsedge: "Broomsedge is mostly a fertility signal — low pH and low phosphorus — not a spray problem. Lime and fertilize to a soil test first and competitive bermuda crowds much of it out. For the plants themselves: spot / wiper glyphosate, a dormant-season broadcast glyphosate pass, or mow / burn in late winter to clear the standing dead growth."
+};
+const NONSELECTIVE_IDS = new Set(["glyphosate", "paraquat"]);
+
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 /* ============================================================
@@ -1174,9 +1192,28 @@ function computeRecommendations({
     };
   }).filter(Boolean);
   candidates.sort((a, b) => b.score - a.score);
+
+  // Non-selective-only advisories: fired for weeds that have no selective option in
+  // a bermuda/bahia stand, or where every eligible candidate this month is a
+  // non-selective product anyway.
+  const weedNotes = [];
+  (weeds || []).forEach(wid => {
+    const w = WEEDS.find(x => x.id === wid);
+    const wName = w ? w.name : wid;
+    if (NONSELECTIVE_ONLY[wid]) {
+      weedNotes.push({ weed: wName, text: NONSELECTIVE_ONLY[wid] });
+      return;
+    }
+    const forThis = candidates.filter(c => c.hits.includes(wid));
+    if (forThis.length > 0 && forThis.every(c => NONSELECTIVE_IDS.has(c.herbicide.id))) {
+      weedNotes.push({ weed: wName, text: `The only thing that matches ${wName} for this field right now is non-selective — it will hurt the bermuda too. Keep it to a spot / wiper application, a low rate on stubble right after a cutting, or a broadcast pass only during full grass dormancy.` });
+    }
+  });
+
   return {
     candidates,
-    excludedByTiming
+    excludedByTiming,
+    weedNotes
   };
 }
 
@@ -3341,7 +3378,8 @@ function SprayPlanner() {
       const cut = fieldCutInfo[name] || {};
       const {
         candidates,
-        excludedByTiming
+        excludedByTiming,
+        weedNotes
       } = computeRecommendations({
         weeds: selectedWeeds,
         useType: (profile.useType === "other" ? "pasture" : profile.useType) || "pasture",
@@ -3358,7 +3396,8 @@ function SprayPlanner() {
         profile,
         cut,
         recommendations: candidates,
-        excludedByTiming
+        excludedByTiming,
+        weedNotes
       };
     });
   }, [selectedFieldNames, fieldProfiles, applications, selectedWeeds, rainExpected, daysSinceRain, month, fieldCutInfo]);
@@ -4378,7 +4417,8 @@ function FieldPlanSection({
     profile,
     cut,
     recommendations,
-    excludedByTiming
+    excludedByTiming,
+    weedNotes
   } = fieldPlan;
   const [open, setOpen] = useState(defaultOpen);
   const acresNum = Number(profile.acreage) > 0 ? Number(profile.acreage) : 0;
@@ -4405,7 +4445,13 @@ function FieldPlanSection({
     className: `text-[#B9BFAE] transition-transform ${open ? "rotate-90" : ""}`
   })), open && /*#__PURE__*/React.createElement("div", {
     className: "p-4 space-y-3"
-  }, excludedByTiming && excludedByTiming.length > 0 && /*#__PURE__*/React.createElement("p", {
+  }, weedNotes && weedNotes.length > 0 && weedNotes.map((n, i) => /*#__PURE__*/React.createElement("div", {
+    key: "wn" + i,
+    className: "text-xs rounded-lg px-3 py-2 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-1.5"
+  }, /*#__PURE__*/React.createElement(AlertTriangle, {
+    size: 13,
+    className: "mt-0.5 shrink-0"
+  }), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, n.weed, ": "), n.text))), excludedByTiming && excludedByTiming.length > 0 && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-[#9CA391] italic"
   }, "Not eligible this month: ", excludedByTiming.map(e => e.name).join(", "), " — timing prerequisites aren't met (see Reference Library for details, or change the month above if that's not accurate)."), recommendations.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "text-sm text-[#6B7A5E] bg-[#F7F8F3] rounded-lg p-4 text-center"
@@ -5482,6 +5528,7 @@ const SEASONAL_WINDOWS = [
   { m0: 7, m1: 7, title: "Last nitrogen by ~September 1", detail: "Nitrogen after early September pushes tender growth that winter-kills and feeds winter weeds. Stop unless you're stockpiling for winter grazing." },
   { m0: 8, m1: 10, title: "Lime & soil-test window", detail: "Fall is the time to lime — it needs 6+ months to move pH before spring. Pull soil tests now so you buy to a number, not a guess." },
   { m0: 8, m1: 10, title: "Fall broadleaf & winter-annual control", detail: "Perennials are moving sugars to the roots (best time to hit horsenettle, dock, and sericea), and winter annuals (henbit, chickweed, ryegrass) are germinating — a fall pass carries you clean into spring." },
+  { m0: 9, m1: 10, title: "Bermuda & bahia going dormant", detail: "First frost usually lands late October to mid-November across the Southeast (later toward the coast). Growth stops, the stand browns off, and the window closes on fall herbicide, stockpile nitrogen, and anything that needs actively growing grass. Once the field is fully brown, dormant-season glyphosate on dallisgrass, johnsongrass, and bristlegrass becomes an option." },
 ];
 
 function calendarEventsForMonth(year, m0, data) {
@@ -5505,8 +5552,16 @@ function calendarEventsForMonth(year, m0, data) {
   fields.forEach(field => {
     const prof = (data.fieldProfiles || {})[field] || {};
     const isHay = prof.useType === "hay" || prof.useType === "both";
+    const grassLc = (prof.grass || "").toLowerCase();
+    const isRyegrass = grassLc.includes("ryegrass") || grassLc.includes("overseed");
     const fApps = apps.filter(a => a.field === field).sort((a, b) => a.date.localeCompare(b.date));
     const fCuts = cuts.filter(c => c.field === field).sort((a, b) => a.date.localeCompare(b.date));
+
+    if (isRyegrass) {
+      push(`${year}-10-01`, field, "fert", "Overseed ryegrass", "Around early October, once the bermuda is slowing: graze or mow it down tight, then drill (~25–30 lb/ac) or broadcast (~35–40 lb/ac) annual ryegrass so the seedlings reach light.", "window");
+      push(`${year}-11-15`, field, "fert", "Ryegrass starter nitrogen", "Once the ryegrass is up and tillering (3+ leaves), ~50–60 lb N/ac kicks off winter growth. Repeat in February for the spring grazing flush.", "window");
+      push(`${year}-02-15`, field, "fert", "Ryegrass spring nitrogen", "Second ryegrass N of the season for the spring grazing surge, before it heads out and the bermuda takes back over.", "window");
+    }
 
     const r = computeFieldRestrictions(field, apps);
     if (r.graze.until) push(r.graze.until, field, "restriction", "Grazing OK", `${shortProductName(r.graze.product)} grazing interval ends.`, "restriction");
@@ -5553,6 +5608,14 @@ function calendarEventsForMonth(year, m0, data) {
     if (m0 >= s.m0 && m0 <= s.m1) events.push({ dateISO: `${year}-${String(m0 + 1).padStart(2, "0")}-01`, field: null, kind: "window", title: s.title, detail: s.detail, tag: "seasonal", seasonal: true });
   });
 
+  // Frost in the live forecast = the dormancy trigger. Flag the first forecast day
+  // at/below ~36°F (light frost possible in low spots).
+  const fc = (data.weather && data.weather.forecast) || [];
+  const frostDay = fc.find(d => d.loF != null && d.loF <= 36);
+  if (frostDay && inMonth(frostDay.date)) {
+    events.push({ dateISO: frostDay.date, field: null, kind: "restriction", title: "Frost in the forecast", detail: `Forecast low ${Math.round(frostDay.loF)}°F. First frost stops bermuda and bahia growth for the year — get any fall herbicide, stockpile nitrogen, or actively-growing-grass job done before it, and treat the stand as dormant afterward.`, tag: "window" });
+  }
+
   return events.sort((a, b) => a.dateISO.localeCompare(b.dateISO) || (a.seasonal ? -1 : 1));
 }
 
@@ -5587,7 +5650,7 @@ function CalendarTab({ applications, cuttings, fieldProfiles, weather, orgName, 
   const h = React.createElement;
   const now = new Date();
   const [ref, setRef] = useState({ y: now.getFullYear(), m: now.getMonth() });
-  const data = { applications, cuttings, fieldProfiles };
+  const data = { applications, cuttings, fieldProfiles, weather };
   const events = calendarEventsForMonth(ref.y, ref.m, data);
   const isThisMonth = ref.y === now.getFullYear() && ref.m === now.getMonth();
   const seasonal = events.filter(e => e.seasonal);
