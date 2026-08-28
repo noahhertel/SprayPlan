@@ -1090,7 +1090,8 @@ function computeRecommendations({
   rainExpected,
   daysSinceRain,
   daysSinceCut,
-  month
+  month,
+  allowTimingOverride
 }) {
   if (!weeds || weeds.length === 0) return {
     candidates: [],
@@ -1108,22 +1109,30 @@ function computeRecommendations({
     const useOk = useType === "both" ? h.use.includes("pasture") || h.use.includes("hay") : h.use.includes(useType);
     if (!useOk) return null;
 
-    // Hard eligibility gate: a product whose timing prerequisite isn't met this month
-    // doesn't get suggested at all (e.g. no broadcast glyphosate in August) — it's
-    // excluded here rather than shown with a warning.
+    // Eligibility gate: a product whose timing prerequisite isn't met this month is
+    // normally hidden (e.g. no broadcast glyphosate in August). With the override on,
+    // it's shown instead with a hard warning so spot / wiper / dormant-method
+    // applications are still possible.
     const timing = TIMING_RULES[h.id];
+    let timingWarning = null;
     if (timing) {
       const prereqFailed = timing.requires === "dormant" && !isDormantMonth || timing.requires === "dormant-or-method" && !isDormantMonth || timing.requires === "active" && isDormantMonth;
       if (prereqFailed) {
-        excludedByTiming.push({
-          id: h.id,
-          name: h.name,
-          reason: timing.note
-        });
-        return null;
+        if (!allowTimingOverride) {
+          excludedByTiming.push({
+            id: h.id,
+            name: h.name,
+            reason: timing.note
+          });
+          return null;
+        }
+        timingWarning = timing.requires === "active"
+          ? `Season-restricted (unlocked): the label wants 100% bermuda green-up before this goes on. Only run it once the grass is actively growing.`
+          : `Season-restricted (unlocked): a broadcast pass now risks ${timing.note}. Keep it to a spot spray, a wick / wiper, a low rate on stubble right after a cutting, or wait for full dormancy.`;
       }
     }
     const flags = [];
+    if (timingWarning) flags.push({ level: "danger", text: timingWarning });
     if (nearWater && distToWater < h.waterBufferFt) {
       flags.push({
         level: "danger",
@@ -3135,6 +3144,9 @@ function SprayPlanner() {
   const [rainExpected, setRainExpected] = useState(false);
   const [recentTemp, setRecentTemp] = useState("");
   const [weedSearch, setWeedSearch] = useState("");
+  // Unlocks products the timing gate would otherwise hide (glyphosate, paraquat,
+  // pre-emergents outside dormancy) — for spot/wiper/dormant-method applications.
+  const [restrictedUnlock, setRestrictedUnlock] = useState(false);
   // "What are you spraying for?" — null until chosen, then "weeds" | "pests" | "fertilizer"
   const [planMode, setPlanMode] = useState(null);
   const [selectedPests, setSelectedPests] = useState([]);
@@ -3167,6 +3179,7 @@ function SprayPlanner() {
         setSelectedPests(li.selectedPests ?? []);
         setFertNeeds(li.fertNeeds ?? {});
         setFertForm(li.fertForm ?? "dry");
+        setRestrictedUnlock(li.restrictedUnlock ?? false);
         if (li.zip) {
           setZip(li.zip);
           loadWeather(li.zip); // refresh conditions on open
@@ -3225,10 +3238,11 @@ function SprayPlanner() {
       planMode,
       selectedPests,
       fertNeeds,
-      fertForm
+      fertForm,
+      restrictedUnlock
     };
     persist("spray-planner:last-inputs", inputs);
-  }, [loaded, selectedFieldNames, selectedWeeds, month, daysSinceRain, rainExpected, recentTemp, zip, planMode, selectedPests, fertNeeds, fertForm, persist]);
+  }, [loaded, selectedFieldNames, selectedWeeds, month, daysSinceRain, rainExpected, recentTemp, zip, planMode, selectedPests, fertNeeds, fertForm, restrictedUnlock, persist]);
   async function updateSprayerSettings(patch) {
     const next = {
       ...sprayerSettings,
@@ -3389,7 +3403,8 @@ function SprayPlanner() {
         rainExpected,
         daysSinceRain,
         daysSinceCut: cut.daysSinceCut ?? null,
-        month
+        month,
+        allowTimingOverride: restrictedUnlock
       });
       return {
         name,
@@ -3400,7 +3415,7 @@ function SprayPlanner() {
         weedNotes
       };
     });
-  }, [selectedFieldNames, fieldProfiles, applications, selectedWeeds, rainExpected, daysSinceRain, month, fieldCutInfo]);
+  }, [selectedFieldNames, fieldProfiles, applications, selectedWeeds, rainExpected, daysSinceRain, month, fieldCutInfo, restrictedUnlock]);
 
   // ---- Per-field pest-control plans (mirrors fieldPlans) ----
   const pestPlans = useMemo(() => {
@@ -3585,6 +3600,7 @@ function SprayPlanner() {
     recentTemp, setRecentTemp, sprayerSettings, updateSprayerSettings,
     zip, setZip, weather, weatherStatus, weatherError, loadWeather, addApplications,
     selectedWeeds, toggleWeed, weedSearch, setWeedSearch, filteredWeeds, fieldPlans,
+    restrictedUnlock, setRestrictedUnlock,
     selectedPests, togglePest, pestSearch, setPestSearch, filteredPests, pestPlans,
     fertNeeds, toggleFertNeed, fertForm, setFertForm, fertPlans
   }), tab === "fields" && /*#__PURE__*/React.createElement(FieldsTab, {
@@ -3740,6 +3756,7 @@ function PlanRouter(props) {
       daysSinceRain: props.daysSinceRain, setDaysSinceRain: props.setDaysSinceRain, rainExpected: props.rainExpected, setRainExpected: props.setRainExpected,
       recentTemp: props.recentTemp, setRecentTemp: props.setRecentTemp, fieldPlans: props.fieldPlans, addApplications: props.addApplications,
       sprayerSettings: props.sprayerSettings, updateSprayerSettings: props.updateSprayerSettings,
+      restrictedUnlock: props.restrictedUnlock, setRestrictedUnlock: props.setRestrictedUnlock,
       zip: props.zip, setZip: props.setZip, weather: props.weather, weatherStatus: props.weatherStatus, weatherError: props.weatherError, loadWeather: props.loadWeather
     });
   } else if (planMode === "pests") {
@@ -4240,6 +4257,8 @@ function PlanTab(props) {
     addApplications,
     sprayerSettings,
     updateSprayerSettings,
+    restrictedUnlock,
+    setRestrictedUnlock,
     zip,
     setZip,
     weather,
@@ -4344,7 +4363,15 @@ function PlanTab(props) {
     className: "text-[10px] text-[#9CA391] mt-2"
   }, weedSearch.trim()
     ? "Searching the full library. Tap to add — your selection applies to every field checked above."
-    : `Showing the ${WEEDS.filter(w => w.common).length} most common. Search the box above to pull up any of the ${WEEDS.length} weed and brush species in the library (bitterweed, silverleaf nightshade, marestail, broomsedge, Chinese tallow, macartney rose…). Selection applies to every field checked above.`)), /*#__PURE__*/React.createElement(WeatherPanel, {
+    : `Showing the ${WEEDS.filter(w => w.common).length} most common. Search the box above to pull up any of the ${WEEDS.length} weed and brush species in the library (bitterweed, silverleaf nightshade, marestail, broomsedge, Chinese tallow, macartney rose…). Selection applies to every field checked above.`)), h("label", {
+    className: "flex items-start gap-2.5 bg-white rounded-xl border border-[#D8D9CE] p-4 cursor-pointer"
+  }, h("input", {
+    type: "checkbox", checked: !!restrictedUnlock,
+    onChange: e => setRestrictedUnlock(e.target.checked),
+    className: "w-4 h-4 mt-0.5 shrink-0"
+  }), h("span", { className: "text-xs text-[#3A3D33] leading-snug" },
+    h("b", null, "Show season-restricted products"),
+    " — glyphosate, paraquat, and the pre-emergents are hidden outside bermuda/bahia dormancy because a broadcast pass would take the grass with it. Turn this on if you're spot-spraying, running a wick / wiper, or hitting stubble right after a cutting. They show up ranked last, with a warning.")), /*#__PURE__*/React.createElement(WeatherPanel, {
     zip: zip,
     setZip: setZip,
     weather: weather,
