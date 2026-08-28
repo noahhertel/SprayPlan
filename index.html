@@ -4733,8 +4733,8 @@ function LogTab({
   onRemove
 }) {
   const h = React.createElement;
-  const customSpray = (customProducts || []).filter(p => p.kind === "herbicide" || p.kind === "insecticide");
-  const allProducts = id => HERBICIDES.find(x => x.id === id) || INSECTICIDES.find(x => x.id === id) || (customProducts || []).find(x => x.id === id);
+  const customList = customProducts || [];
+  const allProducts = id => HERBICIDES.find(x => x.id === id) || INSECTICIDES.find(x => x.id === id) || FERT_PRODUCTS.find(x => x.id === id) || customList.find(x => x.id === id);
   const today = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState(today);
   const [fields, setFields] = useState([]);
@@ -4742,7 +4742,13 @@ function LogTab({
   const [done, setDone] = useState(null);
 
   const setRow = (i, patch) => setRows(rs => rs.map((r, j) => j === i ? { ...r, ...patch } : r));
-  const catOf = p => p ? (p.kind || (INSECTICIDES.some(x => x.id === p.id) ? "insecticide" : "herbicide")) : "herbicide";
+  const catOf = p => {
+    if (!p) return "herbicide";
+    if (p.kind) return p.kind;
+    if (INSECTICIDES.some(x => x.id === p.id)) return "insecticide";
+    if (FERT_PRODUCTS.some(x => x.id === p.id)) return "fertilizer";
+    return "herbicide";
+  };
 
   function addAll() {
     const fs = fields.map(s => s.trim()).filter(Boolean);
@@ -4770,7 +4776,8 @@ function LogTab({
   },
     h("optgroup", { label: "Herbicides" }, HERBICIDES.map(x => h("option", { key: x.id, value: x.id }, x.name))),
     h("optgroup", { label: "Insecticides" }, INSECTICIDES.map(x => h("option", { key: x.id, value: x.id }, x.name))),
-    customSpray.length > 0 && h("optgroup", { label: "Your products" }, customSpray.map(x => h("option", { key: x.id, value: x.id }, x.name))));
+    h("optgroup", { label: "Fertilizer & lime" }, FERT_PRODUCTS.map(x => h("option", { key: x.id, value: x.id }, `${x.name} (${x.analysis})`))),
+    customList.length > 0 && h("optgroup", { label: "Your products" }, customList.map(x => h("option", { key: x.id, value: x.id }, x.name))));
 
   return h("div", { className: "space-y-6" },
     h("div", { className: "bg-white rounded-xl border border-[#D8D9CE] p-5" },
