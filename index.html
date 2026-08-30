@@ -991,29 +991,29 @@ function buildSprayWeather(place, raw) {
   const flags = [];
   if (windMph != null) {
     if (windMph > 15)
-      flags.push({ level: "danger", text: `Wind ${Math.round(windMph)} mph${gustMph ? `, gusting ${Math.round(gustMph)}` : ""} — over the ~10–15 mph ceiling on most labels. High drift risk toward surface water and sensitive crops. Wait for a calmer window.` });
+      flags.push({ level: "danger", ref: "Wind", text: `Wind ${Math.round(windMph)} mph${gustMph ? `, gusting ${Math.round(gustMph)}` : ""} — over the ~10–15 mph ceiling on most labels. High drift risk toward surface water and sensitive crops. Wait for a calmer window.` });
     else if (windMph >= 10)
-      flags.push({ level: "warn", text: `Wind ${Math.round(windMph)} mph out of the ${windCardinal(cur.wind_direction_10m)} — near the upper limit. OK for coarse droplets away from sensitive areas; hold off near water, gardens, or tree lines.` });
+      flags.push({ level: "warn", ref: "Wind", text: `Wind ${Math.round(windMph)} mph out of the ${windCardinal(cur.wind_direction_10m)} — near the upper limit. OK for coarse droplets away from sensitive areas; hold off near water, gardens, or tree lines.` });
     else if (windMph < 3)
-      flags.push({ level: "warn", text: `Wind only ${Math.round(windMph)} mph${isDay ? "" : " and it's not full daylight"} — dead calm can mean a temperature inversion that holds spray in a cloud and drifts it off-target. Spray once you can see steady leaf and flag movement (3–10 mph).` });
+      flags.push({ level: "warn", ref: "Wind", text: `Wind only ${Math.round(windMph)} mph${isDay ? "" : " and it's not full daylight"} — dead calm can mean a temperature inversion that holds spray in a cloud and drifts it off-target. Spray once you can see steady leaf and flag movement (3–10 mph).` });
     else
-      flags.push({ level: "info", text: `Wind ${Math.round(windMph)} mph out of the ${windCardinal(cur.wind_direction_10m)} — in the ideal 3–10 mph band for on-target coverage.` });
+      flags.push({ level: "info", ref: "Wind", text: `Wind ${Math.round(windMph)} mph out of the ${windCardinal(cur.wind_direction_10m)} — in the ideal 3–10 mph band for on-target coverage.` });
   }
   if (dT != null) {
-    if (dT > 10) flags.push({ level: "warn", text: `Delta-T ${dT} — high evaporation. Fine droplets can dry before they reach the leaf; shift to early morning or evening.` });
-    else if (dT < 2) flags.push({ level: "info", text: `Delta-T ${dT} — very humid, slow drying. Watch for long leaf wetness and runoff if you're close to water.` });
-    else if (dT > 8) flags.push({ level: "info", text: `Delta-T ${dT} — marginal (ideal 2–8). Workable, but don't push the hottest part of the day.` });
-    else flags.push({ level: "info", text: `Delta-T ${dT} — in the ideal 2–8 range for spray retention.` });
+    if (dT > 10) flags.push({ level: "warn", ref: "Delta-T", text: `Delta-T ${dT} — high evaporation. Fine droplets can dry before they reach the leaf; shift to early morning or evening.` });
+    else if (dT < 2) flags.push({ level: "info", ref: "Delta-T", text: `Delta-T ${dT} — very humid, slow drying. Watch for long leaf wetness and runoff if you're close to water.` });
+    else if (dT > 8) flags.push({ level: "info", ref: "Delta-T", text: `Delta-T ${dT} — marginal (ideal 2–8). Workable, but don't push the hottest part of the day.` });
+    else flags.push({ level: "info", ref: "Delta-T", text: `Delta-T ${dT} — in the ideal 2–8 range for spray retention.` });
   }
   if (hoursToRain != null) {
-    if (hoursToRain <= 6) flags.push({ level: "danger", text: `Rain likely in about ${hoursToRain} hr — most products need at least 4–6 rain-free hours (some 24). Wash-off and runoff to surface water are the likely result today.` });
-    else if (hoursToRain <= 24) flags.push({ level: "warn", text: `Rain likely in about ${hoursToRain} hr — fine for fast-drying products, risky for anything needing a 24-hour rain-free window. Check the label before you mix.` });
+    if (hoursToRain <= 6) flags.push({ level: "danger", ref: "Rain", text: `Rain likely in about ${hoursToRain} hr — most products need at least 4–6 rain-free hours (some 24). Wash-off and runoff to surface water are the likely result today.` });
+    else if (hoursToRain <= 24) flags.push({ level: "warn", ref: "Rain", text: `Rain likely in about ${hoursToRain} hr — fine for fast-drying products, risky for anything needing a 24-hour rain-free window. Check the label before you mix.` });
   }
   if (tempF != null) {
-    if (tempF < 60) flags.push({ level: "warn", text: `Currently ${Math.round(tempF)}°F — below 60°F many pasture herbicides act slowly on weeds that aren't actively growing. Warmer, sunny days work better.` });
-    else if (tempF > 90) flags.push({ level: "warn", text: `Currently ${Math.round(tempF)}°F — above ~85–90°F, ester products (Remedy Ultra, PastureGard HL) can vaporize and drift. Use amine forms or wait for a cooler window.` });
+    if (tempF < 60) flags.push({ level: "warn", ref: "Temp", text: `Currently ${Math.round(tempF)}°F — below 60°F many pasture herbicides act slowly on weeds that aren't actively growing. Warmer, sunny days work better.` });
+    else if (tempF > 90) flags.push({ level: "warn", ref: "Temp", text: `Currently ${Math.round(tempF)}°F — above ~85–90°F, ester products (Remedy Ultra, PastureGard HL) can vaporize and drift. Use amine forms or wait for a cooler window.` });
   }
-  if (daysSinceRain >= 21) flags.push({ level: "info", text: `${daysSinceRain}+ days since measurable rain — drought-stressed weeds take up herbicide poorly. Best results come after a soaking rain and a few days of green-up.` });
+  if (daysSinceRain >= 21) flags.push({ level: "info", ref: "Drought", text: `${daysSinceRain}+ days since measurable rain — drought-stressed weeds take up herbicide poorly. Best results come after a soaking rain and a few days of green-up.` });
 
   return {
     place,
@@ -1132,49 +1132,55 @@ function computeRecommendations({
       }
     }
     const flags = [];
-    if (timingWarning) flags.push({ level: "danger", text: timingWarning });
+    if (timingWarning) flags.push({ level: "danger", ref: "Season", text: timingWarning });
     if (nearWater && distToWater < h.waterBufferFt) {
       flags.push({
         level: "danger",
+        ref: "Water buffer",
         text: `Water buffer: label calls for ~${h.waterBufferFt} ft from water; this field's profile has ${distToWater} ft to the nearest pond, creek, or lake.`
       });
     }
     if (recentMoaGroups.filter(m => m === h.moa).length >= 2) {
       flags.push({
         level: "warn",
+        ref: "Resistance",
         text: `You've used MOA group ${h.moa} in ${recentMoaGroups.filter(m => m === h.moa).length} of this field's last 4 logged applications — consider rotating to a different mode of action to slow resistance.`
       });
     }
     if (h.restrictedUse) {
       flags.push({
         level: "warn",
+        ref: "Registration",
         text: "Verify current registration/restricted-use status before applying — this product's labeled uses have shifted in recent years."
       });
     }
     if (h.manureMonths > 0) {
       flags.push({
         level: "warn",
+        ref: "Carryover",
         text: `Aminopyralid carryover: don't give away or sell hay/manure from this field for ~${h.manureMonths} months — it can damage broadleaf crops/gardens wherever it ends up.`
       });
     }
     if (rainExpected) {
       flags.push({
         level: "warn",
+        ref: "Rain",
         text: "Rain expected — most of these products want 4–6 hrs (some 24 hrs) rain-free after application to avoid wash-off and runoff to surface water."
       });
     }
     if (daysSinceRain !== "" && Number(daysSinceRain) > 21) {
       flags.push({
         level: "info",
+        ref: "Drought",
         text: "Dry stretch (3+ weeks) — drought-stressed weeds absorb herbicide poorly. Consider waiting for a green-up or dropping the surfactant rate up slightly per label."
       });
     }
     // Post-cutting timing for the products whose sandbur/annual-grass value is tied to a hay cutting
     if ((h.id === "glyphosate" || h.id === "pastora" || h.id === "outrider") && (useType === "hay" || useType === "both") && daysSinceCut != null) {
       if (daysSinceCut <= 12) {
-        flags.push({ level: "info", text: `This field was cut ~${daysSinceCut} day${daysSinceCut === 1 ? "" : "s"} ago — that's the window for ${h.id === "glyphosate" ? "a low glyphosate rate on the stubble for sandbur/annual grasses" : "this on regrowth sandbur (a low glyphosate rate mixed in helps)"}, before bermuda regrowth shields the weeds.` });
+        flags.push({ level: "info", ref: "Post-cut", text: `This field was cut ~${daysSinceCut} day${daysSinceCut === 1 ? "" : "s"} ago — that's the window for ${h.id === "glyphosate" ? "a low glyphosate rate on the stubble for sandbur/annual grasses" : "this on regrowth sandbur (a low glyphosate rate mixed in helps)"}, before bermuda regrowth shields the weeds.` });
       } else if (daysSinceCut <= 25) {
-        flags.push({ level: "info", text: `Cut ~${daysSinceCut} days ago — bermuda regrowth is coming back and starting to shield the weeds. The clean post-cutting shot has mostly passed for this field.` });
+        flags.push({ level: "info", ref: "Post-cut", text: `Cut ~${daysSinceCut} days ago — bermuda regrowth is coming back and starting to shield the weeds. The clean post-cutting shot has mostly passed for this field.` });
       }
     }
     // Annual per-acre label maximum, tallied from this field's logged applications this year
@@ -1186,9 +1192,9 @@ function computeRecommendations({
       if (passes > 0) {
         const usedOz = passes * mid;
         if (usedOz + mid > capOz + 0.001) {
-          flags.push({ level: "danger", text: `Annual max: this field's already had ~${usedOz.toFixed(1)} ${h.rateUnit} of this in ${yr} (${passes} pass${passes > 1 ? "es" : ""}); the label ceiling is ${capOz}. Another labeled-rate pass puts you over — don't.` });
+          flags.push({ level: "danger", ref: "Annual max", text: `Annual max: this field's already had ~${usedOz.toFixed(1)} ${h.rateUnit} of this in ${yr} (${passes} pass${passes > 1 ? "es" : ""}); the label ceiling is ${capOz}. Another labeled-rate pass puts you over — don't.` });
         } else if (usedOz + mid > capOz - mid) {
-          flags.push({ level: "warn", text: `Annual max: ~${usedOz.toFixed(1)} of ${capOz} ${h.rateUnit} used on this field in ${yr}. Room for about one more pass at the label rate.` });
+          flags.push({ level: "warn", ref: "Annual max", text: `Annual max: ~${usedOz.toFixed(1)} of ${capOz} ${h.rateUnit} used on this field in ${yr}. Room for about one more pass at the label rate.` });
         }
       }
     }
@@ -1237,6 +1243,95 @@ function computeRecommendations({
    product in the mix — the label always governs.
    ============================================================ */
 
+// Active ingredients per product — so a mix that stacks the same a.i. across two
+// premixes (2,4-D in Weedmaster + GrazonNext, picloram in Tordon + Surmount, etc.)
+// gets caught even though the product names and MOA strings differ.
+const HERB_ACTIVES = {
+  "24d": ["2,4-D"], "grazonnext": ["aminopyralid", "2,4-D"], "milestone": ["aminopyralid"],
+  "pasturegard": ["triclopyr", "fluroxypyr"], "remedyultra": ["triclopyr"],
+  "pastora": ["metsulfuron", "nicosulfuron"], "glyphosate": ["glyphosate"], "imazapic": ["imazapic"],
+  "pendimethalin": ["pendimethalin"], "indaziflam": ["indaziflam"], "paraquat": ["paraquat"],
+  "cimarronplus": ["metsulfuron", "chlorsulfuron"], "outrider": ["sulfosulfuron"], "msma": ["MSMA"],
+  "sedgehammer": ["halosulfuron"], "chaparral": ["aminopyralid", "metsulfuron"],
+  "surmount": ["picloram", "fluroxypyr"], "dicamba24d": ["2,4-D", "dicamba"],
+  "crossbow": ["2,4-D", "triclopyr"], "duracor": ["aminopyralid", "florpyrauxifen"],
+  "terravue": ["aminopyralid", "metsulfuron"], "metsulfuron": ["metsulfuron"],
+  "triclopyramine": ["triclopyr"], "fluroxypyr": ["fluroxypyr"], "quinclorac": ["quinclorac"],
+  "grazonpd": ["picloram", "2,4-D"], "picloram": ["picloram"], "24db": ["2,4-DB"]
+};
+const INS_ACTIVES = {
+  "chlorantraniliprole": ["chlorantraniliprole"], "methoxyfenozide": ["methoxyfenozide"],
+  "spinosad": ["spinosad"], "lambdacy": ["lambda-cyhalothrin"], "zetacypermethrin": ["zeta-cypermethrin"],
+  "bifenthrin": ["bifenthrin"], "carbaryl": ["carbaryl"], "dimilin": ["diflubenzuron"],
+  "malathion": ["malathion"], "sivanto": ["flupyradifurone"],
+  "fireantbait": ["methoprene", "hydramethylnon"], "besiege": ["lambda-cyhalothrin", "chlorantraniliprole"]
+};
+// active ingredients under a per-year cap where a double dose in one pass matters most
+const LIMITED_ACTIVES = new Set(["2,4-D", "picloram", "aminopyralid", "dicamba", "triclopyr", "2,4-DB", "chlorantraniliprole", "MSMA"]);
+
+function sharedActives(products, activesMap) {
+  const seen = {};
+  products.forEach(p => (activesMap[p.id] || []).forEach(a => { (seen[a] = seen[a] || []).push(p.name); }));
+  return Object.keys(seen).filter(a => seen[a].length > 1).map(a => ({ active: a, products: [...new Set(seen[a])] }));
+}
+// pull group tokens like "3A", "28", "2" out of an IRAC/MOA string
+function groupTokens(s) {
+  return (String(s || "").match(/\b\d+[A-Z]?\b/g) || []);
+}
+
+// Chemical family per active — for the "two of the same family even if different
+// actives" check (stacked pyridine auxins compete for the same detox pathway).
+const RX_FAMILY = {
+  "2,4-D": "phenoxy", "2,4-DB": "phenoxy", "MCPA": "phenoxy",
+  "picloram": "pyridine-auxin", "aminopyralid": "pyridine-auxin", "clopyralid": "pyridine-auxin",
+  "fluroxypyr": "pyridine-auxin", "triclopyr": "pyridine-auxin", "florpyrauxifen": "pyridine-auxin",
+  "dicamba": "benzoic-auxin", "MSMA": "arsenical", "paraquat": "bipyridyl", "glyphosate": "glycine"
+};
+
+// Independent failsafe. Bright-line rules, first principles, no shared code with
+// analyzeTankMix/analyzePestMix. Runs on the FINAL recommended mix; if the two
+// checkers ever disagree, that disagreement is surfaced to the user.
+function vetMix(products, kind) {
+  const activesMap = kind === "pest" ? INS_ACTIVES : HERB_ACTIVES;
+  const blocks = [];
+  const reviews = [];
+  if (!products || products.length < 2) return { ok: true, blocks, reviews };
+
+  // 1. same active ingredient in two products
+  const aCount = {};
+  products.forEach(p => (activesMap[p.id] || []).forEach(a => { aCount[a] = (aCount[a] || 0) + 1; }));
+  Object.keys(aCount).forEach(a => { if (aCount[a] > 1) blocks.push(`${a} would go on twice in one pass`); });
+
+  // 2. site-of-action stacking
+  const grp = {};
+  products.forEach(p => groupTokens(kind === "pest" ? p.iracGroup : p.moa).forEach(g => { grp[g] = (grp[g] || 0) + 1; }));
+  Object.keys(grp).forEach(g => {
+    if (kind !== "pest" && g === "2" && grp[g] > 1) blocks.push(`two Group 2 (ALS) herbicides`);
+    else if (kind !== "pest" && g === "4" && grp[g] > 2) blocks.push(`${grp[g]} Group 4 growth regulators`);
+    else if (kind === "pest" && grp[g] > 1) reviews.push(`two products are IRAC group ${g}`);
+  });
+
+  // 3. same auxin family even if the active differs
+  if (kind !== "pest") {
+    const fam = {};
+    products.forEach(p => (activesMap[p.id] || []).forEach(a => { const f = RX_FAMILY[a]; if (f && f.endsWith("auxin")) fam[f] = (fam[f] || 0) + 1; }));
+    Object.keys(fam).forEach(f => { if (fam[f] > 1) reviews.push(`two ${f.replace(/-/g, " ")} products stacked`); });
+  }
+
+  // 4. non-selective / contact herbicide in a mix
+  const nonsel = products.filter(p => ["glyphosate", "paraquat"].includes(p.id));
+  if (nonsel.length) blocks.push(`${nonsel.map(p => p.name).join(", ")} is non-selective — don't tank-mix it on a stand you're keeping`);
+
+  // 5. bait is not a tank partner
+  const bait = products.filter(p => p.formulation === "bait");
+  if (bait.length) blocks.push(`${bait.map(p => p.name).join(", ")} is a bait, not a tank-mix partner`);
+
+  // 6. more products than a normal tank
+  if (products.length > 3) reviews.push(`${products.length} products in one tank — real mixes rarely exceed three`);
+
+  return { ok: blocks.length === 0, blocks, reviews };
+}
+
 const KNOWN_COMBOS = [{
   pair: ["grazonnext", "remedyultra"],
   level: "info",
@@ -1267,12 +1362,56 @@ function analyzeTankMix(selected) {
   const ids = selected.map(h => h.id);
 
   // Rule: don't stack two ALS (Group 2) inhibitors in one mix.
-  // Match "2" as a standalone group token so MOA "22" (paraquat) doesn't false-match.
-  const alsProducts = selected.filter(h => /\b2\b/.test(h.moa));
+  const alsProducts = selected.filter(h => groupTokens(h.moa).includes("2"));
   if (alsProducts.length >= 2) {
     flags.push({
       level: "danger",
-      text: `${alsProducts.map(h => h.name).join(" + ")} are both Group 2 (ALS-inhibitor) products. Labels generally restrict tank-mixing or sequencing two ALS herbicides together, and it stacks resistance-selection pressure on the same site of action. Don't combine these unless a current label explicitly allows it.`
+      text: `${alsProducts.map(h => h.name).join(" + ")} are ${alsProducts.length > 2 ? "all" : "both"} Group 2 (ALS-inhibitor) products. Labels generally restrict tank-mixing or sequencing two ALS herbicides together, and it stacks resistance-selection pressure on the same site of action. Don't combine these unless a current label explicitly allows it.`
+    });
+  }
+
+  // Same active ingredient in two products (usually two premixes) — double dose in
+  // one pass, over the annual limit for that a.i., and needless crop injury.
+  sharedActives(selected, HERB_ACTIVES).forEach(s => {
+    flags.push({
+      level: LIMITED_ACTIVES.has(s.active) ? "danger" : "warn",
+      text: `${s.products.join(" and ")} both contain ${s.active} — mixing them applies it twice in one pass.${LIMITED_ACTIVES.has(s.active) ? ` That stacks toward the annual per-acre limit on ${s.active} and adds crop injury for no extra spectrum.` : " Redundant — pick one."} Drop one of them.`
+    });
+  });
+
+  // Three or more synthetic-auxin (Group 4) growth regulators in one tank
+  const auxins = selected.filter(h => groupTokens(h.moa).includes("4"));
+  if (auxins.length >= 3) {
+    flags.push({
+      level: "warn",
+      text: `${auxins.length} Group 4 growth-regulator herbicides in one tank (${auxins.map(h => h.name).join(", ")}) is a heavy auxin load on the bermuda and invites antagonism between them. Two auxins is usually the practical ceiling — most broadleaf spectrum is already covered by then.`
+    });
+  }
+
+  // MSMA — the current label only supports tank-mixing it with 2,4-D
+  if (ids.includes("msma") && selected.length > 1) {
+    const others = ids.filter(x => x !== "msma");
+    if (!(others.length === 1 && others[0] === "24d")) {
+      flags.push({
+        level: "warn",
+        text: `MSMA's remaining label allows very few tank-mix partners — 2,4-D is the documented one. Mixing it with ${selected.filter(h => h.id !== "msma").map(h => h.name).join(", ")} isn't supported; check the specimen label before you combine.`
+      });
+    }
+  }
+
+  // Paraquat — fast contact burndown, antagonises any systemic partner
+  if (ids.includes("paraquat") && selected.length > 1) {
+    flags.push({
+      level: "danger",
+      text: "Paraquat is a fast contact desiccant — it burns leaf tissue down before a systemic partner in the same tank can translocate, so it cuts the systemic's kill. It's also non-selective on any green bermuda. Apply paraquat on its own, during dormancy."
+    });
+  }
+
+  // Quinclorac (Facet L) grass-control antagonism from auxin partners
+  if (ids.includes("quinclorac") && selected.some(h => h.id !== "quinclorac" && groupTokens(h.moa).includes("4"))) {
+    flags.push({
+      level: "warn",
+      text: "Quinclorac (Facet L) grass control is antagonised by 2,4-D and dicamba in the same tank — the Facet label calls for a MSO/COC adjuvant and, ideally, separating it from those partners. Watch the grass activity if you keep them together."
     });
   }
 
@@ -1308,9 +1447,11 @@ function analyzeTankMix(selected) {
   const carry = selected.filter(h => h.manureMonths > 0);
   if (carry.length > 0) {
     const months = Math.max(...carry.map(h => h.manureMonths));
+    const acts = new Set(carry.flatMap(h => (HERB_ACTIVES[h.id] || []).filter(a => ["aminopyralid", "picloram", "quinclorac"].includes(a))));
+    const label = [...acts].join(" / ") || "residual growth-regulator";
     flags.push({
       level: "warn",
-      text: `${carry.map(h => h.name).join(", ")} carries an aminopyralid hay/manure restriction (~${months} months). Because it's in the mix, the WHOLE batch of hay or manure off this field inherits that restriction — even the parts that came from the other products.`
+      text: `${carry.map(h => h.name).join(", ")} — ${label} hay / manure / plant-back restriction (~${months} months). Because it's in the mix, the WHOLE batch of hay or manure off this field inherits the longest one, even the parts from the other products.`
     });
   }
 
@@ -1323,6 +1464,7 @@ function analyzeTankMix(selected) {
     soluble: selected.filter(h => h.formulation === "soluble"),
     ec: selected.filter(h => h.formulation === "ec")
   };
+  flags.forEach(f => { if (!f.ref) f.ref = "Tank mix"; });
   return {
     flags,
     buffer,
@@ -1921,46 +2063,46 @@ function computePestControl({ pests, useType, nearWater, distToWater, applicatio
 
     const flags = [];
     if (nearWater && distToWater < p.waterBufferFt) {
-      flags.push({ level: "danger", text: `Water buffer: this product's label calls for ~${p.waterBufferFt} ft from water and it's toxic to aquatic life; this field's profile has ${distToWater} ft to the nearest pond, creek, or lake.` });
+      flags.push({ level: "danger", ref: "Water buffer", text: `Water buffer: this product's label calls for ~${p.waterBufferFt} ft from water and it's toxic to aquatic life; this field's profile has ${distToWater} ft to the nearest pond, creek, or lake.` });
     }
     if (windMph != null && windMph > 10) {
-      flags.push({ level: windMph > 15 ? "danger" : "warn", text: `Wind is ${Math.round(windMph)} mph right now — insecticide drift onto surface water, gardens, or a neighbor's bees is the risk. Spray under 10 mph.` });
+      flags.push({ level: windMph > 15 ? "danger" : "warn", ref: "Wind", text: `Wind is ${Math.round(windMph)} mph right now — insecticide drift onto surface water, gardens, or a neighbor's bees is the risk. Spray under 10 mph.` });
     }
     if (recentGroups.filter(g => g === p.iracGroup).length >= 2) {
-      flags.push({ level: "warn", text: `IRAC group ${p.iracGroup} shows up in ${recentGroups.filter(g => g === p.iracGroup).length} of this field's last 4 logged sprays — rotate to a different group. (Note: all pyrethroids are group 3A — switching brands isn't rotating.)` });
+      flags.push({ level: "warn", ref: "Resistance", text: `IRAC group ${p.iracGroup} shows up in ${recentGroups.filter(g => g === p.iracGroup).length} of this field's last 4 logged sprays — rotate to a different group. (Note: all pyrethroids are group 3A — switching brands isn't rotating.)` });
     }
     if (p.iracGroup.startsWith("3A") && hits.some(h => h === "fallarmyworm" || h === "truearmyworm")) {
-      flags.push({ level: "warn", text: "Fall armyworm has documented pyrethroid (group 3A) resistance across much of the South — a pyrethroid can give a poor kill on a heavy flight. A diamide (Prevathon) or IGR is the more reliable choice on worms." });
+      flags.push({ level: "warn", ref: "Resistance", text: "Fall armyworm has documented pyrethroid (group 3A) resistance across much of the South — a pyrethroid can give a poor kill on a heavy flight. A diamide (Prevathon) or IGR is the more reliable choice on worms." });
     }
     if (p.restrictedUse) {
-      flags.push({ level: "warn", text: "Restricted-use pesticide — applicator license required. Verify current registration before buying." });
+      flags.push({ level: "warn", ref: "Registration", text: "Restricted-use pesticide — applicator license required. Verify current registration before buying." });
     }
     if (p.beeTox === "high") {
-      flags.push({ level: "warn", text: "Highly toxic to bees. Don't spray blooming clover, vetch, or flowering weeds, and stay off during foraging hours — spray at dusk or after dark and let it dry." });
+      flags.push({ level: "warn", ref: "Bees", text: "Highly toxic to bees. Don't spray blooming clover, vetch, or flowering weeds, and stay off during foraging hours — spray at dusk or after dark and let it dry." });
     } else if (p.beeTox === "moderate") {
-      flags.push({ level: "info", text: "Toxic to bees while the spray is wet; dries safe within a few hours. Spray in the evening if there's blooming cover in the stand." });
+      flags.push({ level: "info", ref: "Bees", text: "Toxic to bees while the spray is wet; dries safe within a few hours. Spray in the evening if there's blooming cover in the stand." });
     }
     if (phiDays(p.grazing) > 0 || phiDays(p.hay) > 0) {
-      flags.push({ level: "info", text: `Pre-harvest interval: ${p.grazing} before grazing, ${p.hay} before cutting hay. Restricted-entry ${p.rei} hr.` });
+      flags.push({ level: "info", ref: "Pre-harvest", text: `Pre-harvest interval: ${p.grazing} before grazing, ${p.hay} before cutting hay. Restricted-entry ${p.rei} hr.` });
     }
     if (rainExpected && p.formulation !== "bait") {
-      flags.push({ level: "warn", text: "Rain in the forecast — this needs a few hours dry on the plant to work; a wash-off means re-treating." });
+      flags.push({ level: "warn", ref: "Rain", text: "Rain in the forecast — this needs a few hours dry on the plant to work; a wash-off means re-treating." });
     }
     if (p.formulation === "bait" && daysSinceRain !== "" && Number(daysSinceRain) < 1) {
-      flags.push({ level: "warn", text: "Ground is wet — fire ant bait molds and ants ignore it. Wait for a dry, warm stretch with ants actively foraging." });
+      flags.push({ level: "warn", ref: "Bait timing", text: "Ground is wet — fire ant bait molds and ants ignore it. Wait for a dry, warm stretch with ants actively foraging." });
     }
     if (hits.includes("grasshopper") && daysSinceRain !== "" && Number(daysSinceRain) > 21) {
-      flags.push({ level: "info", text: "Grasshopper numbers climb in drought and they move in from field margins and ditches — treating a border strip early, while nymphs are small, beats a whole-field rescue spray later." });
+      flags.push({ level: "info", ref: "Scouting", text: "Grasshopper numbers climb in drought and they move in from field margins and ditches — treating a border strip early, while nymphs are small, beats a whole-field rescue spray later." });
     }
     if (hits.includes("stemmaggot") && daysSinceCut != null) {
       if (daysSinceCut >= 5 && daysSinceCut <= 14) {
-        flags.push({ level: "info", text: `This field was cut ~${daysSinceCut} days ago — 7–10 days after a cutting, as regrowth greens up, is the stem maggot spray window. You're in it.` });
+        flags.push({ level: "info", ref: "Post-cut", text: `This field was cut ~${daysSinceCut} days ago — 7–10 days after a cutting, as regrowth greens up, is the stem maggot spray window. You're in it.` });
       } else if (daysSinceCut < 5) {
-        flags.push({ level: "info", text: `Only ~${daysSinceCut} days since the cutting — let the regrowth get up a few more days before spraying for stem maggot.` });
+        flags.push({ level: "info", ref: "Post-cut", text: `Only ~${daysSinceCut} days since the cutting — let the regrowth get up a few more days before spraying for stem maggot.` });
       }
     }
     if ((hits.includes("fallarmyworm") || hits.includes("truearmyworm")) && daysSinceCut != null && daysSinceCut <= 16) {
-      flags.push({ level: "info", text: `Fresh regrowth after a cutting (~${daysSinceCut} days) is prime armyworm feeding — walk the greening-up field and check for worms before they get ahead of you.` });
+      flags.push({ level: "info", ref: "Post-cut", text: `Fresh regrowth after a cutting (~${daysSinceCut} days) is prime armyworm feeding — walk the greening-up field and check for worms before they get ahead of you.` });
     }
     const capOz = productLabelData(p.id).annualMaxOz;
     if (capOz != null) {
@@ -1970,9 +2112,9 @@ function computePestControl({ pests, useType, nearWater, distToWater, applicatio
       if (passes > 0) {
         const usedOz = passes * mid;
         if (usedOz + mid > capOz + 0.001) {
-          flags.push({ level: "danger", text: `Annual max: ~${usedOz.toFixed(1)} ${p.rateUnit} of this already on the field in ${yr} (${passes} pass${passes > 1 ? "es" : ""}); label ceiling ${capOz}. Another pass at the label rate is over the limit.` });
+          flags.push({ level: "danger", ref: "Annual max", text: `Annual max: ~${usedOz.toFixed(1)} ${p.rateUnit} of this already on the field in ${yr} (${passes} pass${passes > 1 ? "es" : ""}); label ceiling ${capOz}. Another pass at the label rate is over the limit.` });
         } else if (usedOz + mid > capOz - mid) {
-          flags.push({ level: "warn", text: `Annual max: ~${usedOz.toFixed(1)} of ${capOz} ${p.rateUnit} used this year — about one pass left.` });
+          flags.push({ level: "warn", ref: "Annual max", text: `Annual max: ~${usedOz.toFixed(1)} of ${capOz} ${p.rateUnit} used this year — about one pass left.` });
         }
       }
     }
@@ -2040,6 +2182,170 @@ const FERT_PRODUCTS = [
 
 function lbToTons(lb) { return Math.round((lb / 2000) * 100) / 100; }
 
+// Break a fertilizer product + rate into per-acre nutrient amounts from its analysis.
+function deriveFertNutrients(product, ratePerAc) {
+  if (!product || !(ratePerAc > 0)) return [];
+  if (product.id === "aglime" || product.id === "pellime") return [{ n: "Lime", perAcre: Math.round(ratePerAc * 10) / 10, unit: "tons/ac" }];
+  const lbPerAc = product.form === "liquid" && product.lbPerGal ? ratePerAc * product.lbPerGal : ratePerAc;
+  const out = [];
+  [["N", product.nPct], ["P₂O₅", product.pPct], ["K₂O", product.kPct], ["S", product.sPct]].forEach(pair => {
+    if (pair[1] > 0) out.push({ n: pair[0], perAcre: Math.round(lbPerAc * (pair[1] / 100) * 10) / 10, unit: "lb/ac" });
+  });
+  return out;
+}
+
+/* ---- Fertilizer batch planning: apply toward an annual target, count logged passes ---- */
+const FERT_NUT_KEYS = ["N", "P₂O₅", "K₂O", "S", "Lime"];
+// full name + chemical symbol, e.g. "Nitrogen (N)" — used for headings, labels, and flag references
+const NUTRIENT_NAMES = { "N": "Nitrogen (N)", "P₂O₅": "Phosphorus (P₂O₅)", "K₂O": "Potassium (K₂O)", "S": "Sulfur (S)", "Lime": "Lime" };
+function nutrientLabel(nut) { return NUTRIENT_NAMES[nut] || nut; }
+function fertYear() { return new Date().getFullYear(); }
+
+// Sum every logged fertilizer application's per-acre nutrient amounts for one field
+// this calendar year. Entries with no nutrient breakdown are counted separately.
+function fertAppliedForField(applications, fieldName) {
+  const applied = {};
+  let uncounted = 0;
+  (applications || []).forEach(a => {
+    if (a.category !== "fertilizer" || a.field !== fieldName) return;
+    if (Number(String(a.date || "").slice(0, 4)) !== fertYear()) return;
+    const nuts = a.nutrients || [];
+    if (!nuts.length) { uncounted += 1; return; }
+    nuts.forEach(n => {
+      const v = Number(n.perAcre != null ? n.perAcre : n.rate) || 0;
+      applied[n.n] = (applied[n.n] || 0) + v;
+    });
+  });
+  return { applied, uncounted };
+}
+
+// One primary product to deliver a nutrient at a given lb/ac (or tons/ac for lime).
+function fertProductForNutrient(nutrient, perAcre, form) {
+  if (!(perAcre > 0)) return null;
+  const P = id => FERT_PRODUCTS.find(x => x.id === id);
+  if (nutrient === "N") {
+    const p = form === "liquid" ? P("uan32") : P("urea");
+    return form === "liquid"
+      ? { nutrient, product: p, perAcre: Math.round((perAcre / p.nLbPerGal) * 10) / 10, unit: "gal/ac" }
+      : { nutrient, product: p, perAcre: Math.round(perAcre / (p.nPct / 100)), unit: "lb/ac" };
+  }
+  if (nutrient === "P₂O₅") {
+    const p = form === "liquid" ? P("map1034") : P("tsp");
+    return form === "liquid"
+      ? { nutrient, product: p, perAcre: Math.round((perAcre / (p.pPct / 100)) / 11 * 10) / 10, unit: "gal/ac" }
+      : { nutrient, product: p, perAcre: Math.round(perAcre / (p.pPct / 100)), unit: "lb/ac" };
+  }
+  if (nutrient === "K₂O") { const p = P("potash"); return { nutrient, product: p, perAcre: Math.round(perAcre / (p.kPct / 100)), unit: "lb/ac" }; }
+  if (nutrient === "S") { const p = P("ammsulfate"); return { nutrient, product: p, perAcre: Math.round(perAcre / (p.sPct / 100)), unit: "lb/ac" }; }
+  if (nutrient === "Lime") { const p = P("aglime"); return { nutrient, product: p, perAcre: Math.round(perAcre * 10) / 10, unit: "tons/ac" }; }
+  return null;
+}
+
+function splitFertCart(items) {
+  const groups = [];
+  const isLime = i => i.nutrient === "Lime" || (i.product && i.product.analysis === "pH");
+  const dry = items.filter(i => !isLime(i) && i.product.form !== "liquid");
+  const liq = items.filter(i => !isLime(i) && i.product.form === "liquid");
+  const lime = items.filter(isLime);
+  if (dry.length) groups.push({ label: "Dry — one spreader pass", items: dry });
+  if (liq.length) groups.push({ label: "Liquid — through the sprayer", items: liq });
+  if (lime.length) groups.push({ label: "Lime — its own pass, ahead of the rest", items: lime });
+  return groups;
+}
+
+/* ---- User-chosen fertilizer products (works like the weed/pest product picker) ---- */
+
+// Products that can supply a nutrient. Blends and litter show under every macro.
+function fertProductsForNutrient(nutrient, form) {
+  if (nutrient === "Lime") return FERT_PRODUCTS.filter(p => p.analysis === "pH");
+  const key = { "N": "nPct", "P₂O₅": "pPct", "K₂O": "kPct", "S": "sPct" }[nutrient];
+  return FERT_PRODUCTS.filter(p => {
+    if (p.analysis === "pH" || !(p[key] > 0)) return false;
+    if (form === "dry" && p.form === "liquid") return false;
+    if (form === "liquid" && p.form === "dry" && !p.blend && p.id !== "potash" && p.id !== "sop") return false;
+    return true;
+  });
+}
+
+// The engine's default pick per nutrient — the "recommended set" the user then swaps.
+function recommendedFertSet(fertNeeds, form) {
+  const sel = {};
+  if (fertNeeds.n) sel["N"] = form === "liquid" ? "uan32" : "urea";
+  if (fertNeeds.p) sel["P₂O₅"] = form === "liquid" ? "map1034" : "dap";
+  if (fertNeeds.k) sel["K₂O"] = "potash";
+  if (fertNeeds.s) sel["S"] = "ammsulfate";
+  if (fertNeeds.lime) sel["Lime"] = "aglime";
+  return sel;
+}
+
+// Nutrients one product + rate delivers (rate: lb/ac dry, gal/ac liquid, tons/ac lime).
+function fertDelivers(product, ratePerAc) {
+  if (!product || !(ratePerAc > 0)) return {};
+  if (product.analysis === "pH") return { "Lime": ratePerAc };
+  const lb = product.form === "liquid" && product.lbPerGal ? ratePerAc * product.lbPerGal : ratePerAc;
+  const out = {};
+  if (product.nPct > 0) out["N"] = lb * product.nPct / 100;
+  if (product.pPct > 0) out["P₂O₅"] = lb * product.pPct / 100;
+  if (product.kPct > 0) out["K₂O"] = lb * product.kPct / 100;
+  if (product.sPct > 0) out["S"] = lb * product.sPct / 100;
+  return out;
+}
+function fertUnitFor(p) { return p.analysis === "pH" ? "tons/ac" : (p.form === "liquid" ? "gal/ac" : "lb/ac"); }
+
+// Rate of a product to hit `amt` of `nutrient`.
+function fertRateFor(product, nutrient, amt) {
+  if (!product || !(amt > 0)) return 0;
+  if (nutrient === "Lime" || product.analysis === "pH") return Math.round(amt * 10) / 10;
+  const pct = { "N": product.nPct, "P₂O₅": product.pPct, "K₂O": product.kPct, "S": product.sPct }[nutrient];
+  if (!(pct > 0)) return 0;
+  if (product.form === "liquid" && product.lbPerGal) return Math.round((amt / (pct / 100) / product.lbPerGal) * 10) / 10;
+  return Math.round(amt / (pct / 100));
+}
+
+// Given nutrient targets + a per-nutrient product selection, return the product
+// amounts that hit them, crediting cross-contributions (DAP's N, etc.). `fixed`
+// = { productId: rate } for products whose rate the user set directly (blends).
+function solveFertCart(targets, selections, form, fixed) {
+  const RANK = { "P₂O₅": 0, "K₂O": 1, "S": 2, "N": 3, "Lime": 4 };
+  const delivered = { N: 0, "P₂O₅": 0, "K₂O": 0, S: 0, Lime: 0 };
+  const items = [];
+  // group nutrients by the product chosen for them (one product may cover several)
+  const byProduct = {};
+  Object.keys(selections || {}).forEach(nut => {
+    const pid = selections[nut];
+    if (!pid || !((targets[nut] || 0) > 0)) return;
+    (byProduct[pid] = byProduct[pid] || []).push(nut);
+  });
+  // fixed-rate products (blends the user rate-set) go in first, at their set rate
+  Object.keys(fixed || {}).forEach(pid => {
+    const p = FERT_PRODUCTS.find(x => x.id === pid);
+    if (!p || !(fixed[pid] > 0)) return;
+    const d = fertDelivers(p, fixed[pid]);
+    Object.keys(d).forEach(k => { delivered[k] += d[k]; });
+    items.push({ product: p, rate: fixed[pid], unit: fertUnitFor(p), primary: (byProduct[pid] || ["N"])[0], forNutrients: byProduct[pid] || [] });
+    delete byProduct[pid];
+  });
+  // remaining products, ordered so P/K/S products (which also carry N) resolve
+  // before the pure-N product fills whatever N is still short
+  Object.keys(byProduct)
+    .sort((a, b) => Math.min(...byProduct[a].map(n => RANK[n])) - Math.min(...byProduct[b].map(n => RANK[n])))
+    .forEach(pid => {
+      const p = FERT_PRODUCTS.find(x => x.id === pid);
+      if (!p) return;
+      const nuts = byProduct[pid].slice().sort((a, b) => RANK[a] - RANK[b]);
+      let rate = 0;
+      nuts.forEach(nut => {
+        const need = Math.max(0, (targets[nut] || 0) - (delivered[nut] || 0));
+        if (need > (nut === "Lime" ? 0.05 : 1)) rate = Math.max(rate, fertRateFor(p, nut, need));
+      });
+      if (!(rate > 0)) return;
+      const d = fertDelivers(p, rate);
+      Object.keys(d).forEach(k => { delivered[k] += d[k]; });
+      items.push({ product: p, rate, unit: fertUnitFor(p), primary: nuts[0], forNutrients: nuts });
+    });
+  return { items, delivered };
+}
+
 function computeFertilizerPlan({ needs, soilTest, forage, yieldGoalTons, useType, month, weather, nearWater, distToWater, daysSinceCut, form }) {
   const want = needs || {};
   const st = soilTest || null;
@@ -2078,22 +2384,22 @@ function computeFertilizerPlan({ needs, soilTest, forage, yieldGoalTons, useType
     // volatilization
     const usingUrea = form !== "liquid";
     if (usingUrea && tF != null && tF > 80 && (hoursToRain == null || hoursToRain > 48)) {
-      flags.push({ level: "warn", text: `Currently ${Math.round(tF)}°F with no rain in the forecast window — broadcast urea can lose 15–30% of its N to the air over a few days. Use ammonium sulfate, treat the urea with a urease inhibitor (NBPT / Agrotain), or wait to spread right before rain.` });
+      flags.push({ level: "warn", ref: nutrientLabel("N"), text: `Currently ${Math.round(tF)}°F with no rain in the forecast window — broadcast urea can lose 15–30% of its N to the air over a few days. Use ammonium sulfate, treat the urea with a urease inhibitor (NBPT / Agrotain), or wait to spread right before rain.` });
     }
     if (isDormant) {
-      flags.push({ level: "warn", text: `Bermuda/bahia is dormant in ${month} — nitrogen now mostly feeds winter annual weeds (ryegrass, chickweed, henbit). Hold N until ~100% green-up, usually March–April across the Southeast.` });
+      flags.push({ level: "warn", ref: nutrientLabel("N"), text: `Bermuda/bahia is dormant in ${month} — nitrogen now mostly feeds winter annual weeds (ryegrass, chickweed, henbit). Hold N until ~100% green-up, usually March–April across the Southeast.` });
     }
     if (["September", "October"].includes(month)) {
-      flags.push({ level: "warn", text: "Nitrogen after about September 1 pushes tender growth that winter-kills, and can worsen winter weed pressure. A light late application is only worth it if you're stockpiling for winter grazing." });
+      flags.push({ level: "warn", ref: nutrientLabel("N"), text: "Nitrogen after about September 1 pushes tender growth that winter-kills, and can worsen winter weed pressure. A light late application is only worth it if you're stockpiling for winter grazing." });
     }
     if (use === "pasture" && want.n && st == null) {
-      flags.push({ level: "info", text: "On grazed grass, heavy N on drought-stressed forage that's then grazed hard can spike nitrate — risky for cattle. Fertilize into growing conditions, not a dry spell." });
+      flags.push({ level: "info", ref: nutrientLabel("N"), text: "On grazed grass, heavy N on drought-stressed forage that's then grazed hard can spike nitrate — risky for cattle. Fertilize into growing conditions, not a dry spell." });
     }
     if (use === "hay" && daysSinceCut != null) {
       if (daysSinceCut <= 10) {
-        flags.push({ level: "info", text: `This field was cut ~${daysSinceCut} day${daysSinceCut === 1 ? "" : "s"} ago — once you see green regrowth, that's the time to put the next split (~${perPass || 60} lb N/ac) on. Fertilizing right after a cutting is how you feed the coming growth, not the crop you just hauled off.` });
+        flags.push({ level: "info", ref: nutrientLabel("N"), text: `This field was cut ~${daysSinceCut} day${daysSinceCut === 1 ? "" : "s"} ago — once you see green regrowth, that's the time to put the next split (~${perPass || 60} lb N/ac) on. Fertilizing right after a cutting is how you feed the coming growth, not the crop you just hauled off.` });
       } else if (daysSinceCut > 45 && !isDormant && !["September", "October"].includes(month)) {
-        flags.push({ level: "info", text: `It's been ~${daysSinceCut} days since the last cutting logged for this field — if it's regrown and you're not cutting again soon, it may be past the point where a split pays off.` });
+        flags.push({ level: "info", ref: nutrientLabel("N"), text: `It's been ~${daysSinceCut} days since the last cutting logged for this field — if it's regrown and you're not cutting again soon, it may be past the point where a split pays off.` });
       }
     }
   }
@@ -2116,7 +2422,7 @@ function computeFertilizerPlan({ needs, soilTest, forage, yieldGoalTons, useType
       recs.push({ nutrient: "P₂O₅", perAcre: 0, unit: "lb P₂O₅/ac/yr", basis });
     }
     if (nearWater) {
-      flags.push({ level: "warn", text: `Phosphorus is the nutrient that drives pond and lake algae/weed blooms. Keep P fertilizer back from the water's edge (${distToWater ? distToWater + " ft is this field's water setback" : "at least 50–100 ft"}), and never spread it right before a heavy rain — ${hoursToRain != null ? `rain is ~${hoursToRain} hr out right now` : "check the forecast first"}.` });
+      flags.push({ level: "warn", ref: nutrientLabel("P₂O₅"), text: `Phosphorus is the nutrient that drives pond and lake algae/weed blooms. Keep P fertilizer back from the water's edge (${distToWater ? distToWater + " ft is this field's water setback" : "at least 50–100 ft"}), and never spread it right before a heavy rain — ${hoursToRain != null ? `rain is ~${hoursToRain} hr out right now` : "check the forecast first"}.` });
     }
   }
 
@@ -2135,8 +2441,8 @@ function computeFertilizerPlan({ needs, soilTest, forage, yieldGoalTons, useType
       FERT_PRODUCTS.filter(p => !p.blend && p.kPct > 0 && !(p.nPct > 0) && !(p.pPct > 0)).forEach(p => {
         products.push({ product: p, forNutrient: "K₂O", perAcre: Math.round(kRate / (p.kPct / 100)), unit: "lb/ac/yr" });
       });
-      if (form === "liquid") flags.push({ level: "info", text: "There's no practical liquid potassium source for pasture — potash (0-0-60) or sulfate of potash goes out dry even if the rest of your program runs through the sprayer." });
-      if (kRate > 60) flags.push({ level: "info", text: `That's an annual figure — split it. Put no more than ~60 lb K₂O/ac on at once (with your N applications). A big single potash dose causes luxury uptake and, on grazed grass in spring, nudges grass-tetany risk.` });
+      if (form === "liquid") flags.push({ level: "info", ref: nutrientLabel("K₂O"), text: "There's no practical liquid potassium source for pasture — potash (0-0-60) or sulfate of potash goes out dry even if the rest of your program runs through the sprayer." });
+      if (kRate > 60) flags.push({ level: "info", ref: nutrientLabel("K₂O"), text: `That's an annual figure — split it. Put no more than ~60 lb K₂O/ac on at once (with your N applications). A big single potash dose causes luxury uptake and, on grazed grass in spring, nudges grass-tetany risk.` });
     } else {
       recs.push({ nutrient: "K₂O", perAcre: 0, unit: "lb K₂O/ac/yr", basis });
     }
@@ -2151,7 +2457,7 @@ function computeFertilizerPlan({ needs, soilTest, forage, yieldGoalTons, useType
       } else {
         const tons = Math.min(4, Math.round((6.5 - ph) * 2 * 10) / 10);
         recs.push({ nutrient: "Lime", perAcre: tons, unit: "tons ag lime/ac", basis: `soil pH ${ph} — roughly ${tons} tons/ac ag lime to reach ~6.5. Use the lab's exact recommendation (it accounts for buffer pH); this is an estimate.` });
-        flags.push({ level: "warn", text: `pH ${ph}: lime first. Nitrogen and potassium are markedly less efficient in acid soil — you can be feeding grass that can't use it. Lime takes 6+ months to move pH and can't be incorporated into established sod, so get it out well ahead.` });
+        flags.push({ level: "warn", ref: "Soil pH", text: `pH ${ph}: lime first. Nitrogen and potassium are markedly less efficient in acid soil — you can be feeding grass that can't use it. Lime takes 6+ months to move pH and can't be incorporated into established sod, so get it out well ahead.` });
         products.push({ product: FERT_PRODUCTS.find(p => p.id === "aglime"), forNutrient: "Lime", perAcre: tons, unit: "tons/ac" });
         products.push({ product: FERT_PRODUCTS.find(p => p.id === "pellime"), forNutrient: "Lime", perAcre: Math.round(tons * 0.5 * 10) / 10, unit: "tons/ac (higher NV — use lab rate)" });
       }
@@ -2167,13 +2473,13 @@ function computeFertilizerPlan({ needs, soilTest, forage, yieldGoalTons, useType
 
   // ---------- General flags ----------
   if (nearWater && want.n) {
-    flags.push({ level: "warn", text: `Nitrogen runs off and leaches toward surface water too, especially on sandy ground. Split applications (never more than ~60–70 lb N/ac at once), skip a buffer strip along the water's edge, and don't spread with heavy rain in the forecast${hoursToRain != null ? ` — currently ~${hoursToRain} hr out` : ""}.` });
+    flags.push({ level: "warn", ref: nutrientLabel("N"), text: `Nitrogen runs off and leaches toward surface water too, especially on sandy ground. Split applications (never more than ~60–70 lb N/ac at once), skip a buffer strip along the water's edge, and don't spread with heavy rain in the forecast${hoursToRain != null ? ` — currently ~${hoursToRain} hr out` : ""}.` });
   }
   if (use === "hay") {
-    flags.push({ level: "info", text: "Every ton of bermuda hay hauled off takes roughly 50 lb N, 15 lb P₂O₅, and 42 lb K₂O with it (land-grant extension figures) — potassium is the one hay fields mine out first, since it's the nutrient most easily and quickly depleted by continuous cutting. A soil test every 2–3 years keeps the stand from thinning." });
+    flags.push({ level: "info", ref: "Nutrient removal", text: "Every ton of bermuda hay hauled off takes roughly 50 lb N, 15 lb P₂O₅, and 42 lb K₂O with it (land-grant extension figures) — potassium is the one hay fields mine out first, since it's the nutrient most easily and quickly depleted by continuous cutting. A soil test every 2–3 years keeps the stand from thinning." });
   }
   if (!st) {
-    flags.push({ level: "info", text: "These are starting rates from forage type and yield goal only. A routine soil test (~$15–25 through your state's land-grant lab) pays for itself the first year by right-sizing P, K, and lime instead of guessing." });
+    flags.push({ level: "info", ref: "Soil test", text: "These are starting rates from forage type and yield goal only. A routine soil test (~$15–25 through your state's land-grant lab) pays for itself the first year by right-sizing P, K, and lime instead of guessing." });
   }
   const macroCount = [want.n, want.p, want.k].filter(Boolean).length;
   if (macroCount >= 2) {
@@ -2181,7 +2487,7 @@ function computeFertilizerPlan({ needs, soilTest, forage, yieldGoalTons, useType
     const pp = recs.find(r => r.nutrient === "P₂O₅");
     const kk = recs.find(r => r.nutrient === "K₂O");
     const ratio = [nn ? nn.perAcre : 0, pp ? pp.perAcre : 0, kk ? kk.perAcre : 0];
-    flags.push({ level: "info", text: `Since you need ${macroCount} of the three, a custom dry blend near ${ratio.join("-")} (lb/ac/yr of N-P₂O₅-K₂O) is one spreader pass instead of three separate materials. Your co-op can mix to spec — the straight-product amounts above are the cross-check.` });
+    flags.push({ level: "info", ref: "Blend", text: `Since you need ${macroCount === 3 ? "all three" : macroCount + " of the three"}, a custom dry blend near ${ratio.join("-")} (lb/ac/yr of N-P₂O₅-K₂O) is one spreader pass instead of three separate materials. Your co-op can mix to spec — the straight-product amounts above are the cross-check.` });
   }
   if (want.n || want.p || want.k) {
     const nn = recs.find(r => r.nutrient === "N");
@@ -2191,10 +2497,31 @@ function computeFertilizerPlan({ needs, soilTest, forage, yieldGoalTons, useType
     // and note what it covers rather than a single (often silly) number.
     const litterFull = Math.round((nNeed / 32) * 10) / 10;
     const nFrom3 = Math.round(3 * 32);
-    flags.push({ level: "info", text: `Organic option: broiler/poultry litter is typically spread at 2–4 tons/ac. A 3-ton pass supplies roughly ${nFrom3} lb available N (plus most of a hay field's P and K)${litterFull > 4 ? `; fully replacing this year's ${nNeed} lb N with litter alone would take ~${litterFull} tons/ac, which is more than most operations apply — split the difference with commercial N` : ""}. Litter is P-heavy relative to grass removal, so lean on a soil test, keep it well back from ponds and creeks, and test the load — every source is different.` });
+    flags.push({ level: "info", ref: "Litter", text: `Organic option: broiler/poultry litter is typically spread at 2–4 tons/ac. A 3-ton pass supplies roughly ${nFrom3} lb available N (plus most of a hay field's P and K)${litterFull > 4 ? `; fully replacing this year's ${nNeed} lb N with litter alone would take ~${litterFull} tons/ac, which is more than most operations apply — split the difference with commercial N` : ""}. Litter is P-heavy relative to grass removal, so lean on a soil test, keep it well back from ponds and creeks, and test the load — every source is different.` });
   }
 
-  return { recs, products, flags, yieldGoal: yg, useType: use };
+  // Proactive fall lime: even if lime wasn't asked for, a low pH in the fall is
+  // worth flagging while there's still time for it to work before spring.
+  if (!want.lime && st && st.ph !== "" && st.ph != null && Number(st.ph) < 6.0 && ["September", "October", "November"].includes(month)) {
+    const ph = Number(st.ph);
+    const tons = Math.min(4, Math.round((6.5 - ph) * 2 * 10) / 10);
+    flags.push({ level: "warn", ref: "Soil pH", text: `Fall is the time to lime and this field tests pH ${ph} — worth adding ~${tons} tons/ac ag lime to this plan now so it has the winter to move pH before spring. Nitrogen and potash are wasted money on acid soil.` });
+  }
+
+  // Recommended cart: one primary product per nutrient, split into groups that can
+  // actually go out together — dry spread, liquid through the sprayer, lime alone.
+  const primaryByNutrient = {};
+  products.forEach(pr => { if (pr.product && !primaryByNutrient[pr.forNutrient]) primaryByNutrient[pr.forNutrient] = pr; });
+  const cart = Object.values(primaryByNutrient).filter(c => c.perAcre && c.perAcre > 0);
+  const cartGroups = [];
+  const dryItems = cart.filter(c => c.forNutrient !== "Lime" && c.product.form !== "liquid");
+  const liquidItems = cart.filter(c => c.forNutrient !== "Lime" && c.product.form === "liquid");
+  const limeItems = cart.filter(c => c.forNutrient === "Lime");
+  if (dryItems.length) cartGroups.push({ label: "Dry — one spreader pass", items: dryItems });
+  if (liquidItems.length) cartGroups.push({ label: "Liquid — through the sprayer", items: liquidItems });
+  if (limeItems.length) cartGroups.push({ label: "Lime — its own pass, well ahead of the rest", items: limeItems });
+
+  return { recs, products, flags, yieldGoal: yg, useType: use, cartGroups, hasSoilTest: !!st };
 }
 
 /* ============================================================
@@ -2947,7 +3274,8 @@ async function loadAll() {
   out.sprayerSettings = {
     tankSizeGal: "",
     defaultGpa: 15,
-    applicatorName: ""
+    applicatorName: "",
+    cutIntervalDays: 30
   };
   try {
     const s = await window.storage.get("spray-planner:sprayer-settings");
@@ -3000,6 +3328,14 @@ const FLAG_STYLES = {
   info: "bg-[#EAF0E6] text-[#3F5A34]"
 };
 
+// small chip naming what a flag is about, so the reader can trace it back to its trigger
+function flagRefChip(ref) {
+  if (!ref) return null;
+  return React.createElement("span", {
+    className: "shrink-0 mt-[1px] text-[10px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 bg-black/[0.06] leading-none whitespace-nowrap"
+  }, ref);
+}
+
 function WeatherFlags({ flags }) {
   const h = React.createElement;
   if (!flags || flags.length === 0) return null;
@@ -3007,7 +3343,7 @@ function WeatherFlags({ flags }) {
     h("div", {
       key: i,
       className: `text-xs rounded px-2.5 py-1.5 flex items-start gap-1.5 ${FLAG_STYLES[f.level] || FLAG_STYLES.info}`
-    }, h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }), h("span", null, f.text))
+    }, h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }), flagRefChip(f.ref), h("span", null, f.text))
   ));
 }
 
@@ -3131,7 +3467,8 @@ function SprayPlanner() {
   const [sprayerSettings, setSprayerSettings] = useState({
     tankSizeGal: "",
     defaultGpa: 15,
-    applicatorName: ""
+    applicatorName: "",
+    cutIntervalDays: 30
   });
   const [saveError, setSaveError] = useState(null);
 
@@ -3153,6 +3490,7 @@ function SprayPlanner() {
   const [pestSearch, setPestSearch] = useState("");
   const [fertNeeds, setFertNeeds] = useState({});       // { n:true, k:true, ... } — plan-level "what am I applying today"
   const [fertForm, setFertForm] = useState("dry");      // dry | liquid | both
+  const [fertSelections, setFertSelections] = useState({}); // { "N": "urea", "P₂O₅": "dap", ... } — user's product picks (overrides the recommended set)
   // soil test (P/K/pH) and hay yield goal now live per-field on the profile, not here.
   const [zip, setZip] = useState("");
   const [weather, setWeather] = useState(null);
@@ -3179,6 +3517,7 @@ function SprayPlanner() {
         setSelectedPests(li.selectedPests ?? []);
         setFertNeeds(li.fertNeeds ?? {});
         setFertForm(li.fertForm ?? "dry");
+        setFertSelections(li.fertSelections ?? {});
         setRestrictedUnlock(li.restrictedUnlock ?? false);
         if (li.zip) {
           setZip(li.zip);
@@ -3239,10 +3578,11 @@ function SprayPlanner() {
       selectedPests,
       fertNeeds,
       fertForm,
+      fertSelections,
       restrictedUnlock
     };
     persist("spray-planner:last-inputs", inputs);
-  }, [loaded, selectedFieldNames, selectedWeeds, month, daysSinceRain, rainExpected, recentTemp, zip, planMode, selectedPests, fertNeeds, fertForm, restrictedUnlock, persist]);
+  }, [loaded, selectedFieldNames, selectedWeeds, month, daysSinceRain, rainExpected, recentTemp, zip, planMode, selectedPests, fertNeeds, fertForm, fertSelections, restrictedUnlock, persist]);
   async function updateSprayerSettings(patch) {
     const next = {
       ...sprayerSettings,
@@ -3367,6 +3707,20 @@ function SprayPlanner() {
     setFieldProfiles(next);
     await persist("spray-planner:field-profiles", next);
   }
+  // Lock this year's fertilizer targets onto the field so future visits recall
+  // it and show progress. Called when the first batch is logged, or on recompute.
+  async function commitFertPlan(name, targets) {
+    await upsertFieldProfile(name, { fertPlan: { year: fertYear(), targets, committedAt: todayISO() } });
+  }
+  async function clearFertPlan(name) {
+    const prof = fieldProfiles[name];
+    if (!prof) return;
+    const p = { ...prof };
+    delete p.fertPlan;
+    const next = { ...fieldProfiles, [name]: p };
+    setFieldProfiles(next);
+    await persist("spray-planner:field-profiles", next);
+  }
 
   // ---- Most-recent logged cutting per field, and days since ----
   const fieldCutInfo = useMemo(() => {
@@ -3440,6 +3794,7 @@ function SprayPlanner() {
   }, [selectedFieldNames, fieldProfiles, applications, selectedPests, rainExpected, daysSinceRain, month, weather, fieldCutInfo]);
 
   // ---- Per-field fertilizer plans (soil test + yield goal come from each field profile) ----
+  const fertSel = useMemo(() => ({ ...recommendedFertSet(fertNeeds, fertForm), ...fertSelections }), [fertNeeds, fertForm, fertSelections]);
   const fertPlans = useMemo(() => {
     return selectedFieldNames.map(name => {
       const profile = fieldProfiles[name] || {};
@@ -3457,9 +3812,31 @@ function SprayPlanner() {
         daysSinceCut: cut.daysSinceCut ?? null,
         form: fertForm
       });
-      return { name, profile, cut, plan };
+      // fresh nutrient targets from the current computation
+      const freshTargets = {};
+      plan.recs.forEach(r => { if (r.perAcre != null && r.perAcre > 0) freshTargets[r.nutrient] = r.perAcre; });
+      // a committed annual plan (saved to the field once the first batch is logged)
+      const committed = (profile.fertPlan && profile.fertPlan.year === fertYear()) ? profile.fertPlan : null;
+      const targets = committed ? committed.targets : freshTargets;
+      const { applied, uncounted } = fertAppliedForField(applications, name);
+      const remaining = {};
+      Object.keys(targets).forEach(k => { remaining[k] = Math.max(0, Math.round((targets[k] || 0) - (applied[k] || 0))); });
+      const driftsFromCommitted = !!committed && FERT_NUT_KEYS.some(k => Math.abs((freshTargets[k] || 0) - (committed.targets[k] || 0)) > 8);
+      // rebuild the annual cart from the user's chosen products
+      const solved = solveFertCart(targets, fertSel, fertForm, {});
+      plan.cartGroups = splitFertCart(solved.items.map(it => ({ nutrient: it.primary, product: it.product, perAcre: it.rate, unit: it.unit })));
+      plan.solved = solved;
+      plan.products = [];
+      solved.items.forEach(it => {
+        const nuts = it.forNutrients && it.forNutrients.length ? it.forNutrients : [it.primary];
+        nuts.forEach(nut => plan.products.push({ product: it.product, forNutrient: nut, perAcre: it.rate, unit: it.unit, shared: nuts.length > 1 }));
+      });
+      const missingNutrient = Object.keys(targets).filter(k => (targets[k] || 0) > 0 && !fertSel[k]);
+      const shortfall = FERT_NUT_KEYS.filter(k => (targets[k] || 0) > 0 && fertSel[k] && (solved.delivered[k] || 0) < (targets[k] || 0) - (k === "Lime" ? 0.2 : 15))
+        .map(k => `${nutrientLabel(k)} (${Math.round(solved.delivered[k] || 0)} of ${targets[k]})`);
+      return { name, profile, cut, plan, freshTargets, committed, targets, applied, remaining, uncountedFertApps: uncounted, driftsFromCommitted, selections: fertSel, missingNutrient, shortfall };
     });
-  }, [selectedFieldNames, fieldProfiles, fertNeeds, fertForm, month, weather, fieldCutInfo]);
+  }, [selectedFieldNames, fieldProfiles, fertNeeds, fertForm, fertSel, month, weather, fieldCutInfo, applications]);
 
   // Weed grid: default to the common Southeast species (plus anything already picked);
   // once the user types, search the whole library.
@@ -3544,12 +3921,8 @@ function SprayPlanner() {
     icon: MapPin
   }, {
     id: "log",
-    label: "Sprays",
+    label: "Logs",
     icon: ClipboardList
-  }, {
-    id: "cutting",
-    label: "Cuttings",
-    icon: Scissors
   }, {
     id: "reference",
     label: "Reference",
@@ -3592,6 +3965,7 @@ function SprayPlanner() {
     fieldProfiles: fieldProfiles,
     weather: weather,
     orgName: orgProfile.name,
+    cutIntervalDays: sprayerSettings.cutIntervalDays,
     onGoPlan: () => setTab("plan")
   }), tab === "plan" && /*#__PURE__*/React.createElement(PlanRouter, {
     planMode, setPlanMode,
@@ -3602,30 +3976,30 @@ function SprayPlanner() {
     selectedWeeds, toggleWeed, weedSearch, setWeedSearch, filteredWeeds, fieldPlans,
     restrictedUnlock, setRestrictedUnlock,
     selectedPests, togglePest, pestSearch, setPestSearch, filteredPests, pestPlans,
-    fertNeeds, toggleFertNeed, fertForm, setFertForm, fertPlans
+    fertNeeds, toggleFertNeed, fertForm, setFertForm, fertPlans,
+    fertSel, setFertSelections, commitFertPlan, clearFertPlan, applications
   }), tab === "fields" && /*#__PURE__*/React.createElement(FieldsTab, {
     applications: applications,
     cuttings: cuttings,
     fieldProfiles: fieldProfiles,
     onUpsert: upsertFieldProfile,
     onDelete: deleteFieldProfile
-  }), tab === "log" && /*#__PURE__*/React.createElement(LogTab, {
+  }), tab === "log" && /*#__PURE__*/React.createElement(LogsTab, {
     applications: applications,
     fieldProfiles: fieldProfiles,
     sprayerSettings: sprayerSettings,
+    updateSprayerSettings: updateSprayerSettings,
     knownFieldNames: knownFieldNames,
     customProducts: customProducts,
     orgName: orgProfile.name,
     onAdd: addApplication,
     onAddMany: addApplications,
-    onRemove: removeApplication
-  }), tab === "cutting" && /*#__PURE__*/React.createElement(CuttingTab, {
+    onRemove: removeApplication,
     cuttings: cuttings,
-    knownFieldNames: knownFieldNames,
-    onAdd: addCutting,
-    onAddMany: addCuttings,
-    onRemove: removeCutting,
-    onRemoveMany: removeCuttings
+    onAddCutting: addCutting,
+    onAddManyCuttings: addCuttings,
+    onRemoveCutting: removeCutting,
+    onRemoveManyCuttings: removeCuttings
   }), tab === "reference" && /*#__PURE__*/React.createElement(ReferenceTab, {
     customProducts: customProducts,
     onSaveCustom: saveCustomProduct,
@@ -3652,7 +4026,7 @@ function FlagList({ flags, className }) {
     h("div", {
       key: i,
       className: `text-xs rounded px-2.5 py-1.5 flex items-start gap-1.5 ${FLAG_STYLES[f.level] || FLAG_STYLES.info}`
-    }, h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }), h("span", null, f.text))));
+    }, h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }), flagRefChip(f.ref), h("span", null, f.text))));
 }
 
 function FieldPicker({ fieldProfiles, selected, onToggle }) {
@@ -3788,11 +4162,29 @@ function PestPlanTab(props) {
     pestPlans, addApplications, sprayerSettings, updateSprayerSettings,
     zip, setZip, weather, weatherStatus, weatherError, loadWeather
   } = props;
-  const [planSelections, setPlanSelections] = useState({});
-  function toggleProduct(fieldName, pid) {
-    setPlanSelections(prev => {
-      const cur = prev[fieldName] || [];
-      return { ...prev, [fieldName]: cur.includes(pid) ? cur.filter(x => x !== pid) : [...cur, pid] };
+  const [picks, setPicks] = useState({});
+  const goalGroups = useMemo(
+    () => planGoalGroups(selectedPests, pestPlans, id => (PESTS.find(x => x.id === id) || {}).name || id),
+    [selectedPests, pestPlans]
+  );
+  const mix = useMemo(() => recommendMix(goalGroups, analyzePestMix), [goalGroups]);
+  const hiddenByTiming = useMemo(() => {
+    const s = new Set();
+    pestPlans.forEach(fp => (fp.excludedByTiming || []).forEach(e => s.add(e.name)));
+    return [...s];
+  }, [pestPlans]);
+  function togglePick(product) {
+    setPicks(prev => {
+      if (prev[product.id]) { const n = { ...prev }; delete n[product.id]; return n; }
+      return { ...prev, [product.id]: { mode: "med", oz: rateForMode(product, "med") } };
+    });
+  }
+  function setRate(id, patch) { setPicks(prev => prev[id] ? { ...prev, [id]: { ...prev[id], ...patch } } : prev); }
+  function loadMix() {
+    setPicks(prev => {
+      const n = { ...prev };
+      mix.items.forEach(it => { if (!n[it.product.id]) n[it.product.id] = { mode: "med", oz: rateForMode(it.product, "med") }; });
+      return n;
     });
   }
   const ready = selectedFieldNames.length > 0 && selectedPests.length > 0;
@@ -3821,13 +4213,12 @@ function PestPlanTab(props) {
     h(SprayerSetupCard, { sprayerSettings, updateSprayerSettings }),
     !ready
       ? h("div", { className: "text-sm text-[#6B7A5E] bg-white rounded-xl border border-dashed border-[#D8D9CE] p-6 text-center" }, "Select at least one field and the pests present to generate a plan.")
-      : h("div", { className: "space-y-5" },
-        h(SectionLabel, { icon: ClipboardList }, pestPlans.length > 1 ? `Field Recommendations — ${pestPlans.length} Fields` : "Field Recommendations"),
-        pestPlans.map(fp => h(PestFieldPlanSection, {
-          key: fp.name, fieldPlan: fp, defaultOpen: pestPlans.length <= 2,
-          selection: planSelections[fp.name] || [], onToggleProduct: pid => toggleProduct(fp.name, pid)
-        })),
-        h(PestPlanSection, { pestPlans, planSelections, sprayerSettings, addApplications, selectedPests, weather })));
+      : h("div", { className: "space-y-4" },
+        h(SectionLabel, { icon: ClipboardList }, "Plan"),
+        hiddenByTiming.length > 0 && h("div", { className: "text-[11px] text-[#9CA391] italic" }, "Out of season this month: ", hiddenByTiming.join(", "), "."),
+        h(RecommendedMixCard, { mix: mix, picks: picks, onLoad: loadMix }),
+        goalGroups.map(g => h(GoalSection, { key: g.goalId, group: g, picks: picks, onToggle: togglePick, onRate: setRate, recIds: mix.ids, targetKind: "pest" })),
+        h(TankMixPanel, { targetKind: "pest", goals: selectedPests, goalGroups: goalGroups, fieldPlans: pestPlans, picks: picks, sprayerSettings: sprayerSettings, addApplications: addApplications, weather: weather })));
 }
 
 function PestFieldPlanSection({ fieldPlan, defaultOpen, selection, onToggleProduct }) {
@@ -3869,11 +4260,19 @@ function PestFieldPlanSection({ fieldPlan, defaultOpen, selection, onToggleProdu
 
 function analyzePestMix(selected) {
   const flags = [];
-  const groups = {};
-  selected.forEach(p => { groups[p.iracGroup] = (groups[p.iracGroup] || 0) + 1; });
-  Object.keys(groups).forEach(g => {
-    if (groups[g] > 1) flags.push({ level: "info", text: `${groups[g]} products in this mix are IRAC group ${g} — that adds cost and resistance pressure without adding spectrum.` });
+  // Duplicate IRAC group — parse the group tokens so premixes ("3A + 28") still match.
+  const groupCount = {};
+  selected.forEach(p => groupTokens(p.iracGroup).forEach(g => { (groupCount[g] = groupCount[g] || []).push(p.name); }));
+  Object.keys(groupCount).forEach(g => {
+    if (groupCount[g].length > 1) flags.push({ level: "warn", text: `${[...new Set(groupCount[g])].join(" + ")} are both IRAC group ${g} — same site of action, so it adds cost and resistance pressure without adding spectrum. Rotate groups instead of stacking them.` });
   });
+
+  // Same active ingredient across two products (e.g. Besiege + Prevathon both carry
+  // chlorantraniliprole, or Besiege + a straight pyrethroid).
+  sharedActives(selected, INS_ACTIVES).forEach(s => {
+    flags.push({ level: "danger", text: `${s.products.join(" and ")} both contain ${s.active} — that's a double dose in one pass and pushes past the annual per-acre limit for it. Use one or the other.` });
+  });
+
   const bait = selected.filter(p => p.formulation === "bait");
   if (bait.length && selected.length > 1) flags.push({ level: "danger", text: `${bait.map(p => p.name).join(", ")} is a dry broadcast bait, not a tank-mix partner — put it out separately with a spreader.` });
   const bees = selected.filter(p => p.beeTox === "high");
@@ -3888,7 +4287,137 @@ function analyzePestMix(selected) {
   const maxGraze = Math.max(0, ...selected.map(p => phiDays(p.grazing)));
   const maxHay = Math.max(0, ...selected.map(p => phiDays(p.hay)));
   const maxRei = Math.max(0, ...selected.map(p => Number(p.rei) || 0));
+  flags.forEach(f => { if (!f.ref) f.ref = "Tank mix"; });
   return { flags, order, maxGraze, maxHay, maxRei, buffer: Math.max(0, ...selected.map(p => p.waterBufferFt)) };
+}
+
+/* ============================================================
+   PLAN HELPERS — group products by goal, pick a recommended mix,
+   and turn a low/med/high choice into a concrete oz/ac number.
+   ============================================================ */
+
+function rateForMode(p, mode) {
+  const lo = Number(p.rateLowOz), hi = Number(p.rateHighOz);
+  if (mode === "low") return lo;
+  if (mode === "high") return hi;
+  return Math.round(((lo + hi) / 2) * 100) / 100;
+}
+
+// Roll the per-field recommendation lists up into one ranked product list per goal
+// (a weed or pest id). A product counts for a goal if it hits that goal on at
+// least one selected field; fields where it isn't eligible are penalised + noted.
+function planGoalGroups(goalIds, fieldPlans, nameOf) {
+  const allFields = fieldPlans.map(fp => fp.name);
+  return goalIds.map(gid => {
+    const m = new Map();
+    fieldPlans.forEach(fp => {
+      (fp.recommendations || []).forEach(c => {
+        if (!c.hits.includes(gid)) return;
+        if (!m.has(c.herbicide.id)) m.set(c.herbicide.id, { product: c.herbicide, scoreSum: 0, n: 0, fieldFlags: [], eligible: [] });
+        const e = m.get(c.herbicide.id);
+        e.scoreSum += c.score;
+        e.n += 1;
+        e.eligible.push(fp.name);
+        c.flags.forEach(f => { if (f.level !== "info") e.fieldFlags.push({ field: fp.name, level: f.level, text: f.text }); });
+      });
+    });
+    const products = [...m.values()].map(e => {
+      const ineligible = allFields.filter(n => !e.eligible.includes(n));
+      return {
+        product: e.product,
+        score: e.scoreSum / e.n - ineligible.length * 6,
+        eligible: e.eligible,
+        ineligible,
+        fieldFlags: e.fieldFlags,
+        partial: ineligible.length > 0
+      };
+    }).sort((a, b) => b.score - a.score);
+    return { goalId: gid, goalName: nameOf(gid), products };
+  });
+}
+
+// Fewest compatible products that still cover every goal: top pick per goal,
+// deduped. If a danger-level conflict names two of the picks, drop the one
+// covering fewer goals and re-pick its goals from compatible alternatives.
+function recommendMix(goalGroups, analyzeFn) {
+  const activesMap = analyzeFn === analyzePestMix ? INS_ACTIVES : HERB_ACTIVES;
+  const chosen = new Map();
+  const uncovered = [];
+  goalGroups.forEach(g => {
+    if (g.products.length === 0) { uncovered.push(g.goalName); return; }
+    const already = g.products.find(p => chosen.has(p.product.id));
+    if (already) { chosen.get(already.product.id).goals.push(g.goalName); return; }
+    const pick = g.products[0];
+    chosen.set(pick.product.id, { product: pick.product, goals: [g.goalName] });
+  });
+
+  // A candidate product is compatible with the current mix only if adding it
+  // introduces no danger flag.
+  const compatibleWithMix = (prod, extraIds) => {
+    const set = new Set([...chosen.keys(), ...(extraIds || [])]);
+    if (set.has(prod.id)) return true;
+    const list = [prod, ...[...set].map(id => (analyzeFn === analyzePestMix ? INSECTICIDES : HERBICIDES).find(p => p.id === id)).filter(Boolean)];
+    return !analyzeFn(list).flags.some(f => f.level === "danger");
+  };
+
+  let analysis = analyzeFn([...chosen.values()].map(c => c.product));
+  let guard = 0;
+  while (analysis.flags.some(f => f.level === "danger") && guard < 5) {
+    guard += 1;
+    const danger = analysis.flags.find(f => f.level === "danger");
+    const offenders = [...chosen.values()].filter(c => danger.text.includes(c.product.name));
+    if (offenders.length < 2) break; // can't attribute it to a swappable pair
+    offenders.sort((a, b) => b.goals.length - a.goals.length);
+    const drop = offenders[offenders.length - 1];
+    chosen.delete(drop.product.id);
+    let progressed = false;
+    drop.goals.forEach(goalName => {
+      const g = goalGroups.find(x => x.goalName === goalName);
+      if (!g) return;
+      if (g.products.some(p => chosen.has(p.product.id))) { progressed = true; return; }
+      const alt = g.products.find(p => p.product.id !== drop.product.id && !chosen.has(p.product.id) && compatibleWithMix(p.product));
+      if (alt) { chosen.set(alt.product.id, { product: alt.product, goals: [goalName] }); progressed = true; }
+      else uncovered.push(goalName + " (only conflicting options)");
+    });
+    analysis = analyzeFn([...chosen.values()].map(c => c.product));
+    if (!progressed) break;
+  }
+
+  // ---- Independent failsafe pass ----
+  const kind = analyzeFn === analyzePestMix ? "pest" : "weed";
+  let vet = vetMix([...chosen.values()].map(c => c.product), kind);
+  let vetGuard = 0;
+  while (!vet.ok && chosen.size > 1 && vetGuard < 8) {
+    vetGuard += 1;
+    // drop the least valuable pick: fewest goals, then lowest score
+    const ranked = [...chosen.values()].sort((a, b) => {
+      if (a.goals.length !== b.goals.length) return a.goals.length - b.goals.length;
+      const sa = (goalGroups.flatMap(g => g.products).find(p => p.product.id === a.product.id) || {}).score || 0;
+      const sb = (goalGroups.flatMap(g => g.products).find(p => p.product.id === b.product.id) || {}).score || 0;
+      return sa - sb;
+    });
+    const drop = ranked[0];
+    chosen.delete(drop.product.id);
+    drop.goals.forEach(g => {
+      const stillCovered = [...chosen.values()].some(c => (goalGroups.find(x => x.goalName === g) || { products: [] }).products.some(p => p.product.id === c.product.id));
+      if (!stillCovered) uncovered.push(g + " (held back by the safety check)");
+    });
+    vet = vetMix([...chosen.values()].map(c => c.product), kind);
+  }
+
+  const finalProducts = [...chosen.values()].map(c => c.product);
+  const finalAnalysis = analyzeFn(finalProducts);
+  const finalVet = vetMix(finalProducts, kind);
+  const engineClean = !finalAnalysis.flags.some(f => f.level === "danger");
+  return {
+    items: [...chosen.values()],
+    ids: [...chosen.keys()],
+    flags: finalAnalysis.flags,
+    uncovered: [...new Set(uncovered)],
+    vetted: finalVet.ok && engineClean,
+    vetReviews: finalVet.reviews,
+    disagreement: finalVet.ok !== engineClean
+  };
 }
 
 function PestPlanSection({ pestPlans, planSelections, sprayerSettings, addApplications, selectedPests, weather }) {
@@ -4048,12 +4577,14 @@ function FertilizerPlanTab(props) {
   const h = React.createElement;
   const {
     fieldProfiles, selectedFieldNames, toggleField, fertNeeds, toggleFertNeed,
-    fertForm, setFertForm, addApplications, sprayerSettings,
+    fertForm, setFertForm, fertSel, setFertSelections, addApplications, sprayerSettings, commitFertPlan, clearFertPlan,
     month, setMonth, recentTemp, setRecentTemp, daysSinceRain, setDaysSinceRain, rainExpected, setRainExpected,
     fertPlans, zip, setZip, weather, weatherStatus, weatherError, loadWeather
   } = props;
   const anyNeed = Object.keys(fertNeeds).some(k => fertNeeds[k]);
   const ready = selectedFieldNames.length > 0 && anyNeed;
+  const neededNutrients = [["n", "N"], ["p", "P₂O₅"], ["k", "K₂O"], ["s", "S"], ["lime", "Lime"]].filter(pair => fertNeeds[pair[0]]).map(pair => pair[1]);
+  const setSel = (nut, id) => setFertSelections(prev => ({ ...prev, [nut]: id }));
   return h("div", { className: "space-y-6" },
     h(FieldPicker, { fieldProfiles, selected: selectedFieldNames, onToggle: toggleField }),
     h("div", { className: "bg-white rounded-xl border border-[#D8D9CE] p-5" },
@@ -4074,6 +4605,22 @@ function FertilizerPlanTab(props) {
           h("option", { value: "liquid" }, "Liquid (through sprayer)"),
           h("option", { value: "both" }, "Show both"))),
       h("p", { className: "text-[10px] text-[#9CA391] mt-3" }, "Each field's yield goal and soil-test values (P, K, pH) live on its profile on the Fields tab — enter them once and every plan uses them. Fields with different soil tests get different rates; the combined plan below breaks that out.")),
+    neededNutrients.length > 0 && h("div", { className: "bg-white rounded-xl border border-[#D8D9CE] p-5" },
+      h(SectionLabel, { icon: FlaskConical }, "Fertilizer Products"),
+      h("p", { className: "text-[11px] text-[#6B7A5E] mb-3 -mt-1" }, "The engine picks these from the soil test — swap any you don't run. A blend or litter you choose here shows up for every nutrient it carries."),
+      h("div", { className: "space-y-2.5" }, neededNutrients.map(nut => {
+        const opts = fertProductsForNutrient(nut, fertForm);
+        const cur = fertSel[nut] || "";
+        const p = FERT_PRODUCTS.find(x => x.id === cur);
+        const isRec = cur === recommendedFertSet(fertNeeds, fertForm)[nut];
+        return h("div", { key: nut, className: "flex items-center gap-2 flex-wrap" },
+          h("span", { className: "font-semibold text-sm w-32 shrink-0" }, nutrientLabel(nut)),
+          h("select", { value: cur, onChange: e => setSel(nut, e.target.value), className: "flex-1 min-w-[12rem]" },
+            h("option", { value: "" }, "— not applying —"),
+            opts.map(o => h("option", { key: o.id, value: o.id }, `${o.name} (${o.analysis})`))),
+          p && h("span", { className: `text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${isRec ? "bg-[#D9EEDF] text-[#1F5136]" : "bg-[#EFF1E8] text-[#8A9080]"}` }, isRec ? "recommended" : "your pick"));
+      })),
+      h("p", { className: "text-[10px] text-[#9CA391] mt-3" }, "Multi-nutrient products (DAP, ammonium sulfate, blends, litter) get credited across every nutrient they supply, so the straight products only fill what's left.")),
     selectedFieldNames.length > 0 && h("div", { className: "bg-white rounded-xl border border-[#D8D9CE] p-5" },
       h(SectionLabel, { icon: MapPin }, "Fertility Data by Field"),
       h("div", { className: "space-y-1.5" }, selectedFieldNames.map(name => {
@@ -4089,15 +4636,170 @@ function FertilizerPlanTab(props) {
       ? h("div", { className: "text-sm text-[#6B7A5E] bg-white rounded-xl border border-dashed border-[#D8D9CE] p-6 text-center" }, "Select at least one field and what you need to apply.")
       : h("div", { className: "space-y-5" },
         h(SectionLabel, { icon: ClipboardList }, fertPlans.length > 1 ? `Field Plans — ${fertPlans.length} Fields` : "Field Plan"),
-        fertPlans.map(fp => h(FertFieldSection, { key: fp.name, fieldPlan: fp, defaultOpen: fertPlans.length <= 2, form: fertForm })),
-        h(FertilizerPlanSection, { fertPlans, form: fertForm, addApplications, weather, sprayerSettings })));
+        fertPlans.length > 0 && fertPlans.every(fp => !fp.plan.hasSoilTest) && h("div", { className: "text-sm rounded-lg px-3 py-2.5 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-2 border border-[#E8D9B8]" },
+          h(AlertTriangle, { size: 15, className: "mt-0.5 shrink-0" }),
+          h("span", null, h("b", null, "No soil test on any selected field. "), "These rates are starting estimates from forage type and yield goal only — a $15–25 test right-sizes P, K, and lime and usually pays for itself the first year. Enter results per field on the Fields tab.")),
+        fertPlans.map(fp => h(FertFieldSection, {
+          key: fp.name, fieldPlan: fp, defaultOpen: fertPlans.length <= 2, form: fertForm, selections: fertSel,
+          addApplications: addApplications, onCommitPlan: commitFertPlan, onClearPlan: clearFertPlan, weather: weather, sprayerSettings: sprayerSettings
+        })),
+        h(FertilizerPlanSection, { fertPlans, form: fertForm })));
 }
 
-function FertFieldSection({ fieldPlan, defaultOpen, form }) {
+function FertProgressBar({ label, target, applied, unit }) {
   const h = React.createElement;
-  const { name, profile, plan, cut } = fieldPlan;
+  const pct = target > 0 ? Math.min(100, Math.round((applied / target) * 100)) : 0;
+  const left = Math.max(0, Math.round(target - applied));
+  return h("div", { className: "text-sm" },
+    h("div", { className: "flex justify-between mono text-xs" },
+      h("span", { className: "font-semibold" }, label),
+      h("span", { className: left > 0 ? "text-[#7A5A12]" : "text-[#3F5A34]" }, left > 0 ? `${left} ${unit} to go` : "target met")),
+    h("div", { className: "h-2 rounded-full bg-[#EFF1E8] overflow-hidden mt-0.5" },
+      h("div", { style: { width: pct + "%", height: "100%", background: left > 0 ? "#6B7A5E" : "#3F7A4B" } })),
+    h("div", { className: "text-[10px] text-[#8A9080] mono mt-0.5" }, `${Math.round(applied)} of ${target} ${unit} applied this year`));
+}
+
+function fertItemTotal(it, acres) {
+  if (!acres) return "";
+  const rate = it.rate != null ? it.rate : it.perAcre;
+  const v = rate * acres;
+  if (it.unit.startsWith("gal")) return ` (${v.toFixed(0)} gal)`;
+  if (it.unit.startsWith("tons")) return ` (${v.toFixed(1)} tons)`;
+  return ` (${lbToTons(v)} tons)`;
+}
+
+function FertBatchBuilder({ fieldPlan, form, selections, addApplications, onCommitPlan, weather, sprayerSettings }) {
+  const h = React.createElement;
+  const { name, profile, plan, targets, remaining, committed, freshTargets, missingNutrient } = fieldPlan;
+  const acres = Number(profile.acreage) > 0 ? Number(profile.acreage) : 0;
+  const splitKeys = FERT_NUT_KEYS.filter(k => k !== "Lime" && (targets[k] || 0) > 0);
+  const hasLime = (targets["Lime"] || 0) > 0;
+  const anyRemaining = FERT_NUT_KEYS.some(k => remaining[k] > 0);
+  const maxRem = Math.max(0, ...splitKeys.map(k => remaining[k] || 0));
+  const uniqProducts = [...new Set(Object.keys(selections || {}).map(k => selections[k]).filter(Boolean))].map(id => FERT_PRODUCTS.find(x => x.id === id)).filter(Boolean);
+
+  const [passes, setPasses] = useState(() => Math.max(1, Math.ceil((remaining["N"] || maxRem || 55) / 55)));
+  const [mode, setMode] = useState("nutrient");
+  const [nutBatch, setNutBatch] = useState({});
+  const [prodBatch, setProdBatch] = useState({});
+  const [limeIn, setLimeIn] = useState(false);
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [logging, setLogging] = useState(false);
+  const [done, setDone] = useState(null);
+
+  const remKey = JSON.stringify(remaining);
+  useEffect(() => {
+    const b = {};
+    splitKeys.forEach(k => { b[k] = remaining[k] > 0 ? Math.max(0, Math.round(remaining[k] / passes)) : 0; });
+    setNutBatch(b);
+    setProdBatch({});
+    setDone(null);
+  }, [passes, remKey]);
+
+  const batchTargets = { ...nutBatch };
+  if (limeIn && remaining["Lime"] > 0) batchTargets["Lime"] = remaining["Lime"];
+
+  // product amounts + nutrients delivered, for whichever mode we're in
+  const seed = solveFertCart(batchTargets, selections || {}, form, {});
+  const seedRate = {};
+  seed.items.forEach(it => { seedRate[it.product.id] = it.rate; });
+
+  let cartItems, delivered;
+  if (mode === "product") {
+    cartItems = [];
+    delivered = { N: 0, "P₂O₅": 0, "K₂O": 0, S: 0, Lime: 0 };
+    uniqProducts.forEach(p => {
+      const rate = prodBatch[p.id] != null && prodBatch[p.id] !== "" ? Number(prodBatch[p.id]) : (seedRate[p.id] || 0);
+      cartItems.push({ product: p, rate: rate, unit: fertUnitFor(p), primary: p.analysis === "pH" ? "Lime" : "N" });
+      if (rate > 0) { const d = fertDelivers(p, rate); Object.keys(d).forEach(k => { delivered[k] += d[k]; }); }
+    });
+  } else {
+    cartItems = seed.items;
+    delivered = seed.delivered;
+  }
+  const cartGroups = splitFertCart(cartItems.map(it => ({ nutrient: it.primary, product: it.product, perAcre: it.rate, unit: it.unit })));
+
+  const overCap = [];
+  if ((delivered["N"] || 0) > 75) overCap.push("N over ~75 lb/ac in one pass — split it");
+  if ((delivered["K₂O"] || 0) > 65) overCap.push("K₂O over ~65 lb/ac at once — luxury uptake / grass-tetany risk");
+
+  async function logBatch() {
+    const nuts = FERT_NUT_KEYS.filter(k => (delivered[k] || 0) > 0.1)
+      .map(k => ({ n: k, perAcre: Math.round((delivered[k]) * 10) / 10, unit: k === "Lime" ? "tons/ac" : "lb/ac" }));
+    if (!nuts.length) return;
+    const prodSummary = cartItems.filter(it => it.rate > 0).map(it => `${it.product.name} ${Math.round(it.rate * 10) / 10} ${it.unit}`).join(" + ");
+    const nutSummary = nuts.map(n => `${n.n} ${n.perAcre}${n.n === "Lime" ? "t" : ""}`).join(", ");
+    const entry = {
+      date, field: name, category: "fertilizer", herbicideId: "fertilizer",
+      herbicideName: `Fertilizer — ${prodSummary || nutSummary}`, rate: `${form} · ${acres || "?"} ac`,
+      nutrients: nuts, products: cartItems.filter(it => it.rate > 0).map(it => ({ id: it.product.id, name: it.product.name, perAcre: Math.round(it.rate * 10) / 10, unit: it.unit })),
+      acres: acres || undefined, useType: plan.useType,
+      ...recordSnapshot(profile, weather, sprayerSettings)
+    };
+    setLogging(true);
+    await addApplications([entry]);
+    if (!committed) await onCommitPlan(name, freshTargets);
+    setLogging(false);
+    setDone(`Logged ${nutSummary} on ${date}.`);
+  }
+
+  const modeBtn = (m, label) => h("button", {
+    type: "button", onClick: () => setMode(m),
+    className: `px-2.5 py-1 rounded text-xs font-medium border ${mode === m ? "bg-[#2B4C3F] border-[#2B4C3F] text-white" : "bg-white border-[#D8D9CE] text-[#3A3D33]"}`
+  }, label);
+
+  return h("div", { className: "rounded-lg border-2 border-[#2B4C3F] p-3 space-y-3" },
+    h("div", { className: "flex items-center justify-between gap-2 flex-wrap" },
+      h("div", { className: "flex items-center gap-2" }, h(ClipboardList, { size: 14, className: "text-[#2B4C3F]" }),
+        h("h5", { className: "font-bold text-[#2B4C3F] text-xs uppercase tracking-wide" }, "Build a batch toward the target")),
+      h("div", { className: "flex gap-1" }, modeBtn("nutrient", "By nutrient"), modeBtn("product", "By product"))),
+    missingNutrient && missingNutrient.length > 0 && h("div", { className: "text-xs rounded px-2 py-1.5 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-1.5" },
+      h(AlertTriangle, { size: 12, className: "mt-0.5 shrink-0" }), h("span", null, "No product chosen for ", missingNutrient.map(nutrientLabel).join(", "), " — pick one in Fertilizer Products above or that nutrient won't go out.")),
+    !anyRemaining
+      ? h("p", { className: "text-xs text-[#3F5A34] bg-[#EAF0E6] rounded px-2 py-1.5" }, "This year's targets are met — nothing more to apply.")
+      : h(React.Fragment, null,
+          h("div", { className: "flex items-end gap-2 flex-wrap" },
+            h("div", null, h("label", { className: "text-[10px] text-[#6B7A5E] block" }, "Passes left this season"),
+              h("input", { type: "number", min: 1, value: passes, onChange: e => setPasses(Math.max(1, Number(e.target.value) || 1)), className: "w-20" })),
+            h("div", { className: "text-[11px] text-[#8A9080] pb-2" }, "splits what's left evenly — adjust below")),
+          mode === "nutrient"
+            ? h("div", { className: "space-y-1.5" }, splitKeys.filter(k => remaining[k] > 0).map(k => h("div", { key: k, className: "flex items-center gap-2 text-sm flex-wrap" },
+                h("span", { className: "w-32 shrink-0 font-semibold" }, nutrientLabel(k)),
+                h("input", { type: "number", min: 0, value: nutBatch[k] == null ? "" : nutBatch[k], onChange: e => setNutBatch(prev => ({ ...prev, [k]: Math.max(0, Number(e.target.value) || 0) })), className: "w-24" }),
+                h("span", { className: "text-xs text-[#8A9080]" }, "lb/ac", acres ? ` · ${((nutBatch[k] || 0) * acres).toFixed(0)} lb` : "", ` · ${remaining[k]} left`))))
+            : h("div", { className: "space-y-1.5" }, uniqProducts.filter(p => p.analysis !== "pH").map(p => h("div", { key: p.id, className: "flex items-center gap-2 text-sm flex-wrap" },
+                h("span", { className: "text-xs font-semibold flex-1 min-w-[9rem]" }, p.name, " ", h("span", { className: "text-[#8A9080] font-normal" }, p.analysis)),
+                h("input", { type: "number", min: 0, value: prodBatch[p.id] != null ? prodBatch[p.id] : (seedRate[p.id] || 0), onChange: e => setProdBatch(prev => ({ ...prev, [p.id]: e.target.value })), className: "w-24" }),
+                h("span", { className: "text-xs text-[#8A9080]" }, fertUnitFor(p))))),
+          hasLime && remaining["Lime"] > 0 && h("label", { className: "flex items-start gap-2 text-sm" },
+            h("input", { type: "checkbox", checked: limeIn, onChange: e => setLimeIn(e.target.checked), className: "w-4 h-4 mt-0.5" }),
+            h("span", null, `Include lime — all ${remaining["Lime"]} tons/ac this pass (its own pass, not split)`)),
+          overCap.length > 0 && h("div", { className: "text-xs rounded px-2 py-1.5 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-1.5" },
+            h(AlertTriangle, { size: 12, className: "mt-0.5 shrink-0" }), h("span", null, overCap.join("; "), ".")),
+          h("div", { className: "text-xs bg-[#F7F8F3] rounded p-2 space-y-1" },
+            h("div", { className: "font-semibold text-[#2B4C3F]" }, mode === "nutrient" ? "That works out to:" : "Delivers per acre:"),
+            mode === "nutrient"
+              ? cartGroups.map((g, gi) => h("div", { key: gi }, h("span", { className: "font-semibold" }, g.label, ": "),
+                  h("span", { className: "mono text-[#3A3D33]" }, g.items.map(it => `${it.product.name} ${Math.round((it.perAcre) * 10) / 10} ${it.unit}${fertItemTotal(it, acres)}`).join("  +  "))))
+              : h("div", { className: "mono text-[#3A3D33]" }, FERT_NUT_KEYS.filter(k => delivered[k] > 0.1).map(k => `${k} ${Math.round(delivered[k] * 10) / 10}`).join(" · ") || "—")),
+          h("div", { className: "flex items-center gap-2 pt-1" },
+            h("input", { type: "date", value: date, onChange: e => setDate(e.target.value), className: "w-40" }),
+            h("button", { onClick: logBatch, disabled: logging, className: "px-4 py-2 rounded text-sm font-semibold text-white", style: { background: "#2B4C3F", opacity: logging ? 0.6 : 1 } }, logging ? "Logging…" : "Log this batch")),
+          done && h("div", { className: "text-xs rounded px-2 py-1.5 bg-[#EAF0E6] text-[#2B4C3F] flex items-center gap-1.5 font-medium" }, h(Check, { size: 13 }), " ", done)));
+}
+
+function FertFieldSection({ fieldPlan, defaultOpen, form, selections, addApplications, onCommitPlan, onClearPlan, weather, sprayerSettings }) {
+  const h = React.createElement;
+  const { name, profile, plan, cut, targets, applied, committed, driftsFromCommitted, freshTargets, uncountedFertApps, missingNutrient, shortfall } = fieldPlan;
   const [open, setOpen] = useState(defaultOpen);
   const acres = Number(profile.acreage) > 0 ? Number(profile.acreage) : 0;
+  const cartTotal = (pr) => {
+    if (!acres) return "";
+    const v = pr.perAcre * acres;
+    if (pr.unit.startsWith("gal")) return ` (${v.toFixed(0)} gal)`;
+    if (pr.unit.startsWith("tons")) return ` (${v.toFixed(1)} tons)`;
+    return ` (${lbToTons(v)} tons)`;
+  };
   return h("div", { className: "bg-white rounded-xl border-2 border-[#D8D9CE] overflow-hidden" },
     h("button", { onClick: () => setOpen(!open), className: "w-full flex items-center justify-between px-4 py-3 text-left", style: { background: "#F7F8F3" } },
       h("div", { className: "flex items-center gap-2" }, h(MapPin, { size: 16, className: "text-[#6B7A5E]" }),
@@ -4106,21 +4808,34 @@ function FertFieldSection({ fieldPlan, defaultOpen, form }) {
       h(ChevronRight, { size: 16, className: `text-[#B9BFAE] transition-transform ${open ? "rotate-90" : ""}` })),
     open && h("div", { className: "p-4 space-y-4" },
       h("p", { className: "text-[11px] text-[#8A9080] italic" }, fieldSoilLabel(profile)),
-      h("div", null, h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1.5" }, "Recommended Rates"),
+      plan.cartGroups && plan.cartGroups.length > 0 && h("div", { className: "rounded-lg border-2 p-3 space-y-2", style: { borderColor: "#2B7A4B", background: "#EBF6EE" } },
+        h("div", { className: "flex items-center gap-2" }, h(Check, { size: 15, style: { color: "#2B7A4B" } }),
+          h("h5", { className: "font-bold text-[#1F5136] text-sm" }, plan.hasSoilTest ? "Year's plan — your products, from this field's soil test" : "Year's plan — your products (no soil test on file)")),
+        h("div", { className: "text-xs text-[#23402E] mono" },
+          plan.recs.filter(r => r.perAcre).map((r, i) => h("span", { key: r.nutrient }, i > 0 ? " · " : "", r.nutrient, " ", r.perAcre, " ", r.unit.replace("/yr", "")))),
+        missingNutrient && missingNutrient.length > 0 && h("div", { className: "text-[11px] text-[#7A5A12]" }, "No product picked for ", missingNutrient.join(", "), " — choose one in Fertilizer Products above."),
+        shortfall && shortfall.length > 0 && h("div", { className: "text-[11px] text-[#7A5A12] flex items-start gap-1" }, h(AlertTriangle, { size: 11, className: "mt-0.5 shrink-0" }),
+          h("span", null, "Your chosen products leave a gap on ", shortfall.join(", "), " — a blend or single product won't cover everything. Add a straight product for that nutrient, or plan to top it up.")),
+        plan.cartGroups.map((grp, gi) => h("div", { key: gi, className: "text-xs" },
+          h("div", { className: "font-semibold text-[#1F5136]" }, grp.label),
+          h("div", { className: "text-[#23402E] mono" }, grp.items.map(it => `${it.product.name} ${it.perAcre} ${it.unit.replace("/ac/yr", "/ac").replace("/yr", "")}${cartTotal(it)}`).join("   +   ")))),
+        h("p", { className: "text-[10px] text-[#5E7A66]" }, "Full-year amounts for this field. Build and log them as batches below.")),
+      Object.keys(targets).length > 0 && h("div", { className: "rounded-lg border border-[#D8D9CE] p-3 space-y-2.5" },
+        h("div", { className: "flex items-center justify-between gap-2" },
+          h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080]" }, committed ? `Year's progress — plan set ${committed.committedAt}` : "This year's progress"),
+          committed && h("button", { onClick: () => onClearPlan(name), className: "text-[10px] text-[#8A9080] underline", style: { background: "none", border: "none", cursor: "pointer", padding: 0 } }, "start over")),
+        driftsFromCommitted && h("div", { className: "text-[11px] text-[#7A5A12] bg-[#FCF3DC] rounded px-2 py-1.5 flex items-start gap-1.5" },
+          h(AlertTriangle, { size: 11, className: "mt-0.5 shrink-0" }),
+          h("span", null, "This field's soil test or yield goal has changed since the plan was set. ",
+            h("button", { onClick: () => onCommitPlan(name, freshTargets), className: "text-[#2B4C3F] font-medium underline", style: { background: "none", border: "none", cursor: "pointer", padding: 0 } }, "Update the targets"))),
+        FERT_NUT_KEYS.filter(k => (targets[k] || 0) > 0).map(k => h(FertProgressBar, { key: k, label: nutrientLabel(k), target: targets[k], applied: applied[k] || 0, unit: k === "Lime" ? "tons/ac" : "lb/ac" })),
+        uncountedFertApps > 0 && h("p", { className: "text-[10px] text-[#B98A3F]" }, `${uncountedFertApps} logged fertilizer application${uncountedFertApps === 1 ? "" : "s"} this year with no nutrient breakdown — not counted above. Log new passes as batches to keep the tally right.`)),
+      h(FertBatchBuilder, { fieldPlan: fieldPlan, form: form, selections: selections, addApplications: addApplications, onCommitPlan: onCommitPlan, weather: weather, sprayerSettings: sprayerSettings }),
+      h("div", null, h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1.5" }, "This year's target"),
         h("div", { className: "space-y-2" }, plan.recs.map(r => h("div", { key: r.nutrient, className: "text-sm" },
           h("div", { className: "mono font-semibold text-[#23261F]" }, r.nutrient, ": ", r.perAcre == null ? "soil test needed" : `${r.perAcre} ${r.unit}`, acres > 0 && r.perAcre ? ` · ${(r.perAcre * acres).toFixed(r.unit.startsWith("tons") ? 1 : 0)} ${r.unit.replace("/ac", "")} across ${acres} ac` : ""),
           h("div", { className: "text-xs text-[#6B7A5E] leading-snug" }, r.basis))))),
-      plan.products.length > 0 && h("div", null,
-        h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1.5" }, "Product Options", form !== "both" ? ` (${form})` : ""),
-        h("table", { className: "w-full text-sm mono" },
-          h("thead", null, h("tr", { className: "text-left text-[10px] uppercase text-[#8A9080] border-b border-[#EFF1E8]" },
-            h("th", { className: "py-1.5 pr-2" }, "Product"), h("th", { className: "py-1.5 pr-2" }, "For"), h("th", { className: "py-1.5 pr-2" }, "Rate/ac"), acres > 0 && h("th", { className: "py-1.5 pr-2" }, `Total (${acres} ac)`))),
-          h("tbody", null, plan.products.map((pr, i) => h("tr", { key: i, className: "border-b border-[#F2F3EE] align-top" },
-            h("td", { className: "py-1.5 pr-2" }, pr.product.name, " ", h("span", { className: "text-[#8A9080]" }, pr.product.analysis)),
-            h("td", { className: "py-1.5 pr-2 text-[#8A9080] text-xs" }, pr.forNutrient),
-            h("td", { className: "py-1.5 pr-2" }, pr.perAcre, " ", pr.unit),
-            acres > 0 && h("td", { className: "py-1.5 pr-2" }, pr.unit.startsWith("gal") ? `${(pr.perAcre * acres).toFixed(0)} gal` : pr.unit.startsWith("tons") ? `${(pr.perAcre * acres).toFixed(1)} tons` : `${lbToTons(pr.perAcre * acres)} tons (${(pr.perAcre * acres).toFixed(0)} lb)`)))))),
-      plan.products.length > 0 && h("p", { className: "text-[10px] text-[#9CA391]" }, plan.products.map(p => `${p.product.name}: ${p.product.note}`).slice(0, 3).join("  ·  ")),
+      (plan.solved && plan.solved.items.length > 0) && h("p", { className: "text-[10px] text-[#9CA391]" }, plan.solved.items.map(it => `${it.product.name}: ${it.product.note}`).filter((v, i, a) => a.indexOf(v) === i).slice(0, 3).join("  ·  ")),
       acres === 0 && h("p", { className: "text-[10px] text-[#B98A3F]" }, "Set this field's acreage on the Fields tab to see total tonnage / gallons."),
       h(FlagList, { flags: plan.flags }),
       h("p", { className: "text-[10px] text-[#9CA391]" }, "Split nitrogen: roughly a third to a half at spring green-up, then ~50–60 lb N/ac after each hay cutting, stopping by about September 1. These are planning estimates — your soil-test lab's recommendation is the one to follow.")));
@@ -4129,13 +4844,8 @@ function FertFieldSection({ fieldPlan, defaultOpen, form }) {
 /* Combined fertilizer plan across every selected field. Because rates are
    driven by each field's own soil test / yield goal, fields can need
    different amounts — this breaks the totals out per field and flags it. */
-function FertilizerPlanSection({ fertPlans, form, addApplications, weather, sprayerSettings }) {
+function FertilizerPlanSection({ fertPlans, form }) {
   const h = React.createElement;
-  const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [loggedInfo, setLoggedInfo] = useState(null);
-  const [logging, setLogging] = useState(false);
-  useEffect(() => { setLoggedInfo(null); }, [logDate, fertPlans]);
-
   const fields = fertPlans.filter(fp => Number(fp.profile.acreage) > 0);
   const noAcreage = fertPlans.filter(fp => !(Number(fp.profile.acreage) > 0));
   const totalAcres = fields.reduce((s, fp) => s + Number(fp.profile.acreage), 0);
@@ -4169,32 +4879,22 @@ function FertilizerPlanSection({ fertPlans, form, addApplications, weather, spra
     }
     return { nut, rows, differ: new Set(rates).size > 1, buyTotal };
   });
+  // a multi-nutrient product (ammonium sulfate for N+S, a blend, litter) is one purchase —
+  // count it under the first nutrient it appears for, and flag the repeats so nobody adds them up
+  const countedUnder = {};
+  byNutrient.forEach(n => {
+    if (!n.buyTotal) return;
+    if (countedUnder[n.buyTotal.name]) n.buyTotal.dupOf = countedUnder[n.buyTotal.name];
+    else countedUnder[n.buyTotal.name] = nutrientLabel(n.nut);
+  });
   const anyDiffer = byNutrient.some(n => n.differ);
-
-  async function logIt() {
-    const entries = fields.map(fp => {
-      const summary = fp.plan.recs.filter(r => r.perAcre).map(r => `${r.nutrient} ${r.perAcre}`).join(", ");
-      return {
-        date: logDate, field: fp.name, category: "fertilizer",
-        herbicideId: "fertilizer",
-        herbicideName: `Fertilizer — ${summary || "per plan"}`,
-        rate: `${form} · ${fp.profile.acreage} ac`,
-        nutrients: fp.plan.recs.filter(r => r.perAcre).map(r => ({ n: r.nutrient, rate: r.perAcre, unit: r.unit })),
-        useType: fp.plan.useType,
-        ...recordSnapshot(fp.profile, weather, sprayerSettings)
-      };
-    });
-    setLogging(true);
-    await addApplications(entries);
-    setLogging(false);
-    setLoggedInfo(`Logged fertilizer plan for ${entries.length} field${entries.length !== 1 ? "s" : ""} on ${logDate}.`);
-  }
 
   if (fertPlans.length === 0 || nutrients.length === 0) return null;
 
   return h("div", { className: "bg-white rounded-xl border-2 border-[#2B4C3F] p-4 space-y-4" },
     h("div", { className: "flex items-center gap-2" }, h(ClipboardList, { size: 16, className: "text-[#2B4C3F]" }),
-      h("h3", { className: "font-semibold text-sm uppercase tracking-wide text-[#2B4C3F]", style: { letterSpacing: "0.06em" } }, "Fertilizer Plan — All Fields")),
+      h("h3", { className: "font-semibold text-sm uppercase tracking-wide text-[#2B4C3F]", style: { letterSpacing: "0.06em" } }, "Season Materials — All Fields")),
+    h("p", { className: "text-xs text-[#6B7A5E] -mt-2" }, "Everything the year's plans call for across every selected field, totaled — what to have on hand or order."),
     anyDiffer && h("div", { className: "text-xs rounded px-2.5 py-1.5 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-1.5" },
       h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }),
       h("span", null, "These fields don't all take the same rate — different soil tests, use, or yield goals mean different amounts per acre. The per-field breakdown below reflects that; don't run one blanket rate across all of them.")),
@@ -4202,10 +4902,10 @@ function FertilizerPlanSection({ fertPlans, form, addApplications, weather, spra
       h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }),
       h("span", null, noAcreage.map(f => f.name).join(", "), " ", noAcreage.length > 1 ? "have" : "has", " no acreage set, so ", noAcreage.length > 1 ? "they're" : "it's", " left out of the totals. Set acreage on the Fields tab.")),
     h("div", { className: "grid grid-cols-3 gap-3 text-sm" },
-      [["Fields", fields.length], ["Total acreage", (totalAcres || "—") + " ac"], ["Nutrients", nutrients.join(" · ") || "—"]].map(([k, v]) =>
+      [["Fields", fields.length], ["Total acreage", (totalAcres || "—") + " ac"], ["Nutrients", nutrients.map(nutrientLabel).join(" · ") || "—"]].map(([k, v]) =>
         h("div", { key: k, className: "bg-[#F7F8F3] rounded-lg p-2.5" }, h("div", { className: "text-[10px] uppercase text-[#8A9080]" }, k), h("div", { className: "font-semibold mono text-xs" }, v)))),
     byNutrient.map(({ nut, rows, differ, buyTotal }) => h("div", { key: nut },
-      h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1.5" }, nut,
+      h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1.5" }, nutrientLabel(nut),
         differ && h("span", { className: "text-[#B98A3F] normal-case tracking-normal" }, "  · varies by field")),
       h("div", { className: "overflow-x-auto" }, h("table", { className: "w-full text-sm mono" },
         h("thead", null, h("tr", { className: "text-left text-[10px] uppercase text-[#8A9080] border-b border-[#EFF1E8]" },
@@ -4214,20 +4914,266 @@ function FertilizerPlanSection({ fertPlans, form, addApplications, weather, spra
           h("td", { className: "py-1 pr-2" }, r.field, " ", h("span", { className: "text-[#8A9080] text-xs" }, `(${r.acres} ac)`)),
           h("td", { className: "py-1 pr-2" }, r.perAcre == null ? "—" : `${r.perAcre} ${r.unit.replace("/yr", "")}`),
           h("td", { className: "py-1 pr-2 text-xs" }, r.product ? `${r.product.name} ${r.product.analysis}` : "—"),
-          h("td", { className: "py-1 pr-2" }, r.prodPerAcre == null ? "—" :
+          h("td", { className: "py-1 pr-2" }, (buyTotal && buyTotal.dupOf) ? h("span", { className: "text-[#8A9080] text-xs" }, "in row above") :
+            r.prodPerAcre == null ? "—" :
             r.prodUnit.startsWith("gal") ? `${(r.prodPerAcre * r.acres).toFixed(0)} gal` :
             r.prodUnit.startsWith("tons") ? `${(r.prodPerAcre * r.acres).toFixed(1)} tons` :
             `${lbToTons(r.prodPerAcre * r.acres)} tons`)))),
-        buyTotal && h("tfoot", null, h("tr", { className: "font-semibold text-[#23261F]" },
-          h("td", { className: "py-1 pr-2" }, "Buy total"), h("td", { className: "py-1 pr-2" }), h("td", { className: "py-1 pr-2 text-xs" }, buyTotal.name), h("td", { className: "py-1 pr-2" }, buyTotal.text))))))),
-    h("p", { className: "text-[10px] text-[#9CA391]" }, "Totals use the first straight product listed for each nutrient — the per-field cards above carry the alternatives and the blend option. Amounts are annual; split N and K across the season."),
+        buyTotal && h("tfoot", null, buyTotal.dupOf
+          ? h("tr", { className: "text-[#6B7A5E] text-xs" }, h("td", { className: "py-1 pr-2", colSpan: 4 },
+              `${buyTotal.name} also covers this — it's already in the ${buyTotal.dupOf} buy total above. Don't order it twice.`))
+          : h("tr", { className: "font-semibold text-[#23261F]" },
+              h("td", { className: "py-1 pr-2" }, "Buy total"), h("td", { className: "py-1 pr-2" }), h("td", { className: "py-1 pr-2 text-xs" }, buyTotal.name), h("td", { className: "py-1 pr-2" }, buyTotal.text))))))),
+    h("p", { className: "text-[10px] text-[#9CA391]" }, "Year totals only. Actual applications get built and logged as batches on each field's card above, and count toward these totals."));
+}
+
+/* ============================================================
+   PLAN — goal-grouped product picker + concrete tank mix
+   ============================================================ */
+
+function AggressionControl({ product, pick, onChange }) {
+  const h = React.createElement;
+  const lo = Number(product.rateLowOz), hi = Number(product.rateHighOz);
+  const unit = product.rateUnit || "oz/ac";
+  if (!(hi > lo)) {
+    return h("div", { className: "text-xs mono text-[#3A3D33] bg-[#EFF1E8] rounded px-2 py-1.5" }, "Rate: ", h("b", null, lo, " ", unit), " — single label rate");
+  }
+  const step = Math.max(0.05, Math.round(((hi - lo) / 20) * 100) / 100);
+  const btn = (mode, label) => h("button", {
+    type: "button", onClick: () => onChange({ mode, oz: rateForMode(product, mode) }),
+    className: `px-2.5 py-1 rounded text-xs font-medium border ${pick.mode === mode ? "bg-[#2B4C3F] border-[#2B4C3F] text-white" : "bg-white border-[#D8D9CE] text-[#3A3D33]"}`
+  }, label);
+  return h("div", { className: "bg-[#EFF1E8] rounded-lg p-2.5 space-y-2" },
+    h("div", { className: "flex items-center justify-between gap-2 flex-wrap" },
+      h("div", { className: "flex gap-1" }, btn("low", "Low"), btn("med", "Medium"), btn("high", "High")),
+      h("div", { className: "mono text-sm font-bold text-[#23261F]" }, pick.oz, " ", unit)),
+    h("input", { type: "range", min: lo, max: hi, step: step, value: pick.oz,
+      onChange: e => onChange({ mode: "custom", oz: Math.round(Number(e.target.value) * 100) / 100 }),
+      className: "w-full", "aria-label": product.name + " rate" }),
+    h("div", { className: "flex items-center gap-2 text-[11px] text-[#6B7A5E]" },
+      "label ", h("span", { className: "mono" }, lo, "–", hi), h("span", { className: "flex-1" }),
+      "exact ", h("input", { type: "number", step: "0.1", value: pick.oz,
+        onChange: e => { let v = Number(e.target.value); if (isNaN(v)) return; v = Math.min(hi, Math.max(lo, v)); onChange({ mode: "custom", oz: Math.round(v * 100) / 100 }); },
+        className: "w-20" })));
+}
+
+function GoalProductRow({ entry, picks, onToggle, onRate, recommended, targetKind }) {
+  const h = React.createElement;
+  const p = entry.product;
+  const picked = !!picks[p.id];
+  const groupLabel = targetKind === "pest" ? `IRAC ${p.iracGroup}` : `MOA ${p.moa}`;
+  const lo = Number(p.rateLowOz), hi = Number(p.rateHighOz);
+  const dangerFlags = entry.fieldFlags.filter(f => f.level === "danger");
+  return h("div", {
+    className: `rounded-lg border-2 p-3 ${recommended ? "border-[#2B7A4B] bg-[#EBF6EE]" : picked ? "border-[#2B4C3F] bg-white" : "border-[#E4E6DD] bg-white"}`
+  },
+    h("div", { className: "flex items-start gap-2.5" },
+      h("input", { type: "checkbox", checked: picked, onChange: () => onToggle(p), className: "w-4 h-4 mt-0.5 shrink-0", "aria-label": `Add ${p.name} to the tank mix` }),
+      h("div", { className: "min-w-0 flex-1" },
+        h("div", { className: "flex items-center gap-2 flex-wrap" },
+          h("span", { className: "font-semibold text-sm text-[#23261F]" }, p.name),
+          h("span", { className: "text-[10px] mono text-[#8A9080]" }, groupLabel),
+          recommended && h("span", { className: "text-[9px] uppercase tracking-wide font-bold text-[#1F5136] bg-[#D9EEDF] px-1.5 py-0.5 rounded" }, "recommended"),
+          p.restrictedUse && h("span", { className: "text-[9px] uppercase tracking-wide text-[#8C2E1F] bg-[#FBEAE6] px-1.5 py-0.5 rounded" }, "restricted-use")),
+        h("div", { className: "text-[11px] text-[#6B7A5E] mono mt-0.5" }, "label ", hi > lo ? `${lo}–${hi}` : `${lo}`, " ", p.rateUnit, " · graze ", p.grazing, " · hay ", p.hay),
+        entry.partial && h("div", { className: "text-[11px] text-[#B98A3F] mt-1" }, "Not eligible on ", entry.ineligible.join(", "), " (use type or season)"),
+        dangerFlags.map((f, i) => h("div", { key: "d" + i, className: "text-[11px] text-[#8C2E1F] mt-1 flex items-start gap-1" }, h(AlertTriangle, { size: 11, className: "mt-0.5 shrink-0" }), h("span", null, f.field, ": ", f.text))),
+        picked && h("div", { className: "mt-2" }, h(AggressionControl, { product: p, pick: picks[p.id], onChange: patch => onRate(p.id, patch) })))));
+}
+
+function GoalSection({ group, picks, onToggle, onRate, recIds, targetKind }) {
+  const h = React.createElement;
+  const [expanded, setExpanded] = useState(false);
+  const shown = expanded ? group.products : group.products.slice(0, 3);
+  const restCount = group.products.length - 3;
+  return h("div", { className: "bg-white rounded-xl border border-[#D8D9CE] p-4 space-y-2.5" },
+    h("div", { className: "flex items-center gap-2" },
+      h(targetKind === "pest" ? Bug : Sprout, { size: 15, className: "text-[#6B7A5E]" }),
+      h("h4", { className: "font-bold text-[#23261F]" }, group.goalName),
+      h("span", { className: "text-[11px] text-[#8A9080]" }, group.products.length, " option", group.products.length === 1 ? "" : "s")),
+    group.products.length === 0
+      ? h("p", { className: "text-xs text-[#B98A3F]" }, "No product in the library is labeled for this on the selected field(s) this month. Check the Reference Library or your extension agent.")
+      : h(React.Fragment, null,
+          shown.map(entry => h(GoalProductRow, { key: entry.product.id, entry: entry, picks: picks, onToggle: onToggle, onRate: onRate, recommended: recIds.includes(entry.product.id), targetKind: targetKind })),
+          restCount > 0 && h("button", {
+            type: "button", onClick: () => setExpanded(!expanded),
+            className: "text-xs text-[#2B4C3F] font-medium flex items-center gap-1", style: { background: "none", border: "none", cursor: "pointer", padding: 0 }
+          }, h(ChevronRight, { size: 12, className: expanded ? "rotate-90" : "" }), expanded ? "Fewer options" : `Give me ${restCount} more option${restCount === 1 ? "" : "s"}`)));
+}
+
+function RecommendedMixCard({ mix, picks, onLoad }) {
+  const h = React.createElement;
+  if (!mix || mix.items.length === 0) return null;
+  const allLoaded = mix.ids.every(id => picks[id]);
+  const safe = mix.vetted;
+  const border = safe ? "#2B7A4B" : "#B98A3F";
+  const bg = safe ? "#EBF6EE" : "#FCF6E9";
+  return h("div", { className: "rounded-xl border-2 p-4 space-y-2", style: { borderColor: border, background: bg } },
+    h("div", { className: "flex items-center gap-2" },
+      h(safe ? Check : AlertTriangle, { size: 16, style: { color: border } }),
+      h("h4", { className: "font-bold", style: { color: safe ? "#1F5136" : "#7A5A12" } }, safe ? "Recommended tank mix" : "Best match — review before mixing")),
+    h("div", { className: "text-sm", style: { color: safe ? "#23402E" : "#5F4A17" } },
+      mix.items.map((it, i) => h("span", { key: it.product.id }, i > 0 ? " + " : "", h("b", null, it.product.name))),
+      " — covers ", [...new Set(mix.items.flatMap(it => it.goals))].join(", "), "."),
+    mix.disagreement && h("div", { className: "text-xs rounded px-2 py-1.5 bg-[#FBEAE6] text-[#8C2E1F] flex items-start gap-1.5 font-medium" },
+      h(AlertTriangle, { size: 12, className: "mt-0.5 shrink-0" }),
+      h("span", null, "Our two independent compatibility checks disagree on this combination — treat it as unverified and confirm against the product labels or your extension agent before mixing.")),
+    mix.uncovered.length > 0 && h("div", { className: "text-xs text-[#8C2E1F] flex items-start gap-1.5" },
+      h(AlertTriangle, { size: 12, className: "mt-0.5 shrink-0" }),
+      h("span", null, "Not in this mix: ", mix.uncovered.join(", "), " — handle in that section below, as a separate pass.")),
+    mix.flags.filter(f => f.level !== "info").map((f, i) => h("div", {
+      key: i, className: `text-xs rounded px-2 py-1 flex items-start gap-1.5 ${f.level === "danger" ? "bg-[#FBEAE6] text-[#8C2E1F]" : "bg-[#FCF3DC] text-[#7A5A12]"}`
+    }, h(AlertTriangle, { size: 12, className: "mt-0.5 shrink-0" }), h("span", null, f.text))),
+    (mix.vetReviews || []).map((r, i) => h("div", { key: "vr" + i, className: "text-xs rounded px-2 py-1 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-1.5" },
+      h(AlertTriangle, { size: 12, className: "mt-0.5 shrink-0" }), h("span", null, "Worth a look: ", r, "."))),
+    h("p", { className: "text-[10px]", style: { color: safe ? "#5E7A66" : "#8A7A4E" } },
+      "Auto-composed from label data and checked two independent ways. It is not a substitute for jar-testing every batch, and each product's specimen label is the legal authority."),
+    h("button", { type: "button", onClick: onLoad, className: "px-4 py-2 rounded text-sm font-semibold text-white", style: { background: border, opacity: allLoaded ? 0.7 : 1 } },
+      allLoaded ? "Loaded ✓" : "Use this mix"));
+}
+
+// The one consolidated, concrete tank mix. Consumes `picks` ({id: {oz, mode}}).
+function TankMixPanel({ targetKind, goals, goalGroups, fieldPlans, picks, sprayerSettings, addApplications, weather }) {
+  const h = React.createElement;
+  const PRODUCTS = targetKind === "pest" ? INSECTICIDES : HERBICIDES;
+  const analyzeFn = targetKind === "pest" ? analyzePestMix : analyzeTankMix;
+  const nameOf = targetKind === "pest" ? (id => (PESTS.find(x => x.id === id) || {}).name) : (id => (WEEDS.find(x => x.id === id) || {}).name);
+  const category = targetKind === "pest" ? "insecticide" : "herbicide";
+
+  const [gpa, setGpa] = useState(String(sprayerSettings.defaultGpa || 15));
+  const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [loggedInfo, setLoggedInfo] = useState(null);
+  const [logging, setLogging] = useState(false);
+  useEffect(() => { setGpa(String(sprayerSettings.defaultGpa || 15)); }, [sprayerSettings.defaultGpa]);
+  useEffect(() => { setLoggedInfo(null); }, [picks, logDate]);
+
+  const acresOf = name => { const fp = fieldPlans.find(x => x.name === name); const a = fp ? Number(fp.profile.acreage) : 0; return a > 0 ? a : 0; };
+  const eligFields = id => {
+    const set = new Set();
+    goalGroups.forEach(g => { const e = g.products.find(p => p.product.id === id); if (e) e.eligible.forEach(f => set.add(f)); });
+    return [...set];
+  };
+  const rows = Object.keys(picks).map(id => {
+    const product = PRODUCTS.find(p => p.id === id);
+    if (!product) return null;
+    const fields = eligFields(id);
+    const acres = fields.reduce((s, n) => s + acresOf(n), 0);
+    const oz = Number(picks[id].oz) || 0;
+    return { product, fields, acres, oz, totalOz: oz * acres, missingAcreage: fields.some(n => acresOf(n) === 0) };
+  }).filter(Boolean);
+
+  const selectedProducts = rows.map(r => r.product);
+  const analysis = selectedProducts.length ? analyzeFn(selectedProducts) : null;
+  const vet = vetMix(selectedProducts, targetKind === "pest" ? "pest" : "weed");
+  const engineClean = analysis ? !analysis.flags.some(f => f.level === "danger") : true;
+  const tankRows = rows.filter(r => r.product.formulation !== "bait");
+  const baitRows = rows.filter(r => r.product.formulation === "bait");
+  const allFieldsInPlay = [...new Set(rows.flatMap(r => r.fields))];
+  const totalAcres = allFieldsInPlay.reduce((s, n) => s + acresOf(n), 0);
+  const gpaNum = Number(gpa) || 0;
+  const tankSize = Number(sprayerSettings.tankSizeGal) || 0;
+  const totalVol = totalAcres > 0 && gpaNum > 0 ? totalAcres * gpaNum : 0;
+  const liquidVol = tankRows.reduce((s, r) => r.product.formulation === "dry" ? s : s + r.totalOz / 128, 0);
+  const waterGal = totalVol - liquidVol;
+  const loads = tankSize > 0 && totalVol > 0 ? Math.ceil(totalVol / tankSize) : 1;
+  const goalCoverage = goals.map(gid => ({ name: nameOf(gid), covered: selectedProducts.some(p => p.targets.includes(gid)) }));
+
+  async function logIt() {
+    const entries = [];
+    for (const name of allFieldsInPlay) {
+      const fp = fieldPlans.find(x => x.name === name);
+      if (!fp) continue;
+      const snap = recordSnapshot(fp.profile, weather, sprayerSettings);
+      for (const r of rows) {
+        if (!r.fields.includes(name)) continue;
+        entries.push({
+          date: logDate, field: name, category: category,
+          herbicideId: r.product.id, herbicideName: r.product.name,
+          rate: `${r.oz} ${r.product.rateUnit}`,
+          [targetKind === "pest" ? "pests" : "weeds"]: goals,
+          useType: fp.profile.useType || "pasture",
+          ...snap
+        });
+      }
+    }
+    if (entries.length === 0) return;
+    setLogging(true);
+    await addApplications(entries);
+    setLogging(false);
+    const fc = new Set(entries.map(e => e.field)).size;
+    setLoggedInfo(`Logged ${entries.length} application${entries.length !== 1 ? "s" : ""} across ${fc} field${fc !== 1 ? "s" : ""} on ${logDate}.`);
+  }
+
+  if (rows.length === 0) {
+    return h("div", { className: "bg-white rounded-xl border-2 border-dashed border-[#D8D9CE] p-6 text-center text-sm text-[#6B7A5E]" },
+      "Load the recommended mix, or check products in the sections above, to build your tank mix.");
+  }
+
+  return h("div", { className: "bg-white rounded-xl border-2 border-[#2B4C3F] p-4 space-y-4" },
+    h("div", { className: "flex items-center gap-2" }, h(ClipboardList, { size: 16, className: "text-[#2B4C3F]" }),
+      h("h3", { className: "font-semibold text-sm uppercase tracking-wide text-[#2B4C3F]", style: { letterSpacing: "0.06em" } }, "Tank Mix")),
+    analysis && (engineClean !== vet.ok) && h("div", { className: "text-xs rounded px-2.5 py-1.5 bg-[#FBEAE6] text-[#8C2E1F] flex items-start gap-1.5 font-medium" },
+      h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }),
+      h("span", null, "The two independent compatibility checks disagree on this combination — treat it as unverified. Confirm against the labels before you mix.")),
+    vet.blocks.length > 0 && h("div", { className: "space-y-1.5" }, vet.blocks.map((b, i) => h("div", {
+      key: "vb" + i, className: "text-xs rounded px-2.5 py-1.5 bg-[#FBEAE6] text-[#8C2E1F] flex items-start gap-1.5"
+    }, h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }), h("span", null, "Safety check: ", b, ".")))),
+    analysis && (analysis.flags.filter(f => f.level !== "info").length === 0 && vet.blocks.length === 0
+      ? h("div", { className: "text-xs rounded px-2.5 py-1.5 bg-[#EAF0E6] text-[#3F5A34] flex items-start gap-1.5" }, h(Check, { size: 13, className: "mt-0.5 shrink-0" }), h("span", null, "Both compatibility checks are clear on these picks — still jar-test before a full batch."))
+      : h("div", { className: "space-y-1.5" }, analysis.flags.filter(f => f.level !== "info").map((f, i) => h("div", {
+          key: i, className: `text-xs rounded px-2.5 py-1.5 flex items-start gap-1.5 ${f.level === "danger" ? "bg-[#FBEAE6] text-[#8C2E1F]" : "bg-[#FCF3DC] text-[#7A5A12]"}`
+        }, h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }), h("span", null, f.text))))),
+    (vet.reviews || []).map((r, i) => h("div", { key: "tvr" + i, className: "text-xs rounded px-2.5 py-1.5 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-1.5" },
+      h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }), h("span", null, "Worth a look: ", r, "."))),
+    h("div", { className: "grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm" },
+      [["Fields", allFieldsInPlay.length], ["Acres", (totalAcres || "—") + " ac"], ["Products", tankRows.length], [targetKind === "pest" ? "Pests covered" : "Weeds covered", `${goalCoverage.filter(g => g.covered).length}/${goalCoverage.length}`]].map(kv =>
+        h("div", { key: kv[0], className: "bg-[#F7F8F3] rounded-lg p-2.5" }, h("div", { className: "text-[10px] uppercase text-[#8A9080]" }, kv[0]), h("div", { className: "font-semibold mono" }, kv[1])))),
+    goalCoverage.some(g => !g.covered) && h("div", { className: "text-xs rounded px-2.5 py-1.5 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-1.5" },
+      h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }),
+      h("span", null, "Nothing in this mix covers: ", goalCoverage.filter(g => !g.covered).map(g => g.name).join(", "), ".")),
+    baitRows.length > 0 && h("div", { className: "text-xs rounded px-2.5 py-1.5 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-1.5" },
+      h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }),
+      h("span", null, baitRows.map(r => r.product.name).join(", "), " is a broadcast bait — spread it dry with a spreader, separate from the tank.")),
+    h("div", null,
+      h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1.5" }, loads > 1 ? `Add to tank — ${loads} loads` : "Add to tank"),
+      h("div", { className: "overflow-x-auto" }, h("table", { className: "w-full text-sm mono" },
+        h("thead", null, h("tr", { className: "text-left text-[10px] uppercase text-[#8A9080] border-b border-[#EFF1E8]" },
+          h("th", { className: "py-1.5 pr-2" }, "Product"), h("th", { className: "py-1.5 pr-2" }, "Rate/ac"), h("th", { className: "py-1.5 pr-2" }, "Fields"), h("th", { className: "py-1.5 pr-2" }, "Total"), loads > 1 && h("th", { className: "py-1.5 pr-2" }, "Per load"))),
+        h("tbody", null, tankRows.map(r => h("tr", { key: r.product.id, className: "border-b border-[#F2F3EE] align-top" },
+          h("td", { className: "py-1.5 pr-2" }, r.product.name, r.product.formulation === "dry" && h("span", { className: "text-[#8A9080]" }, " (dry)")),
+          h("td", { className: "py-1.5 pr-2" }, r.oz, " ", r.product.rateUnit),
+          h("td", { className: "py-1.5 pr-2 text-[#8A9080] text-xs" }, r.fields.join(", ") || "—"),
+          h("td", { className: "py-1.5 pr-2" }, r.acres > 0 ? `${r.totalOz.toFixed(1)} oz` : "—", r.missingAcreage && h("span", { className: "text-[#B98A3F]" }, " *")),
+          loads > 1 && h("td", { className: "py-1.5 pr-2" }, r.acres > 0 ? `${(r.totalOz / loads).toFixed(1)} oz` : "—")))))),
+      rows.some(r => r.missingAcreage) && h("p", { className: "text-[10px] text-[#B98A3F] mt-1" }, "* a field for this product has no acreage set — total is short. Set it on the Fields tab.")),
+    analysis && tankRows.length > 0 && h("div", null,
+      h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1.5" }, "Fill order"),
+      h("ol", { className: "text-xs text-[#3A3D33] space-y-1 list-decimal list-inside mono" },
+        h("li", null, "Fill tank ~1/3 to 1/2 with water, start agitation."),
+        analysis.order.dry.length > 0 && h("li", null, "Dry / WDG, agitate between each: ", analysis.order.dry.map(p => p.name).join(", "), "."),
+        analysis.order.soluble.length > 0 && h("li", null, "Water-soluble liquids: ", analysis.order.soluble.map(p => p.name).join(", "), "."),
+        analysis.order.ec.length > 0 && h("li", null, "Emulsifiable concentrate / ester: ", analysis.order.ec.map(p => p.name).join(", "), "."),
+        h("li", null, "Adjuvant / surfactant per label last; top off with water, keep agitating."))),
+    tankRows.length > 0 && h("div", null,
+      h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1.5" }, "Water"),
+      h("div", { className: "flex items-end gap-3 mb-2" },
+        h("div", null, h("label", { className: "text-[10px] text-[#6B7A5E] block" }, "Spray volume (GPA)"),
+          h("input", { type: "number", value: gpa, onChange: e => setGpa(e.target.value), className: "w-24" })),
+        h("div", { className: "text-xs text-[#8A9080] pb-2" }, "for ", totalAcres || "—", " ac total")),
+      totalAcres === 0
+        ? h("p", { className: "text-xs text-[#B98A3F]" }, "Set acreage on the fields in this plan to size the water.")
+        : h("div", { className: "mono text-sm text-[#3A3D33] space-y-1 bg-[#F7F8F3] rounded-lg p-3" },
+            h("div", null, "Total spray volume: ", h("b", null, totalVol.toFixed(0), " gal"), " (", gpaNum, " GPA × ", totalAcres, " ac)"),
+            h("div", null, "Liquid product volume: ", h("b", null, liquidVol.toFixed(2), " gal")),
+            h("div", { className: waterGal < 0 ? "text-[#8C2E1F]" : "" }, "Water to add: ", h("b", null, waterGal < 0 ? "—" : waterGal.toFixed(0) + " gal"), waterGal < 0 && " — raise GPA."),
+            tankSize > 0 && h("div", { className: "pt-1 border-t border-[#E5E7DC] mt-1" }, loads > 1 ? `Exceeds your ${tankSize}-gal tank — ${loads} loads, about ${(totalVol / loads).toFixed(0)} gal mix and ${(waterGal / loads).toFixed(0)} gal water each.` : `Fits one ${tankSize}-gal tank load.`))),
     h("div", { className: "pt-3 border-t border-[#EFF1E8] space-y-2" },
       h("div", { className: "flex flex-wrap items-center gap-2" },
         h("div", null, h("label", { className: "text-[10px] text-[#6B7A5E] block" }, "Date"),
           h("input", { type: "date", value: logDate, onChange: e => setLogDate(e.target.value), className: "w-40" })),
-        h("button", { onClick: logIt, disabled: logging || fields.length === 0,
-          style: { ...BTN_SOLID_STYLE, padding: "10px 16px", borderRadius: 6, fontSize: 14, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6, opacity: (logging || fields.length === 0) ? 0.6 : 1 } },
-          h(Check, { size: 14, color: "#FFFFFF" }), " ", logging ? "Logging…" : "Log This Plan")),
+        h("button", { onClick: logIt, disabled: logging,
+          style: { ...BTN_SOLID_STYLE, padding: "10px 16px", borderRadius: 6, fontSize: 14, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6, opacity: logging ? 0.7 : 1 } },
+          h(Check, { size: 14, color: "#FFFFFF" }), " ", logging ? "Logging…" : "Log this mix")),
       loggedInfo && h("div", { className: "text-xs rounded px-2.5 py-2 bg-[#EAF0E6] text-[#2B4C3F] flex items-center gap-1.5 font-medium" }, h(Check, { size: 14, className: "shrink-0" }), " ", loggedInfo)));
 }
 
@@ -4270,16 +5216,37 @@ function PlanTab(props) {
   const fieldNames = Object.keys(fieldProfiles).sort((a, b) => a.localeCompare(b));
   const readyForPlan = selectedFieldNames.length > 0 && selectedWeeds.length > 0;
 
-  // Per-field product picks feeding the single combined Spray Plan section below.
-  const [planSelections, setPlanSelections] = useState({}); // { [fieldName]: herbicideId[] }
-  function toggleProduct(fieldName, herbicideId) {
-    setPlanSelections(prev => {
-      const cur = prev[fieldName] || [];
-      const next = cur.includes(herbicideId) ? cur.filter(x => x !== herbicideId) : [...cur, herbicideId];
-      return {
-        ...prev,
-        [fieldName]: next
-      };
+  // picks: { [herbicideId]: { mode: "low"|"med"|"high"|"custom", oz: number } }
+  const [picks, setPicks] = useState({});
+  const goalGroups = useMemo(
+    () => planGoalGroups(selectedWeeds, fieldPlans, id => (WEEDS.find(w => w.id === id) || {}).name || id),
+    [selectedWeeds, fieldPlans]
+  );
+  const mix = useMemo(() => recommendMix(goalGroups, analyzeTankMix), [goalGroups]);
+  const weedNotes = useMemo(() => {
+    const seen = new Set(), out = [];
+    fieldPlans.forEach(fp => (fp.weedNotes || []).forEach(n => { if (!seen.has(n.weed + n.text)) { seen.add(n.weed + n.text); out.push(n); } }));
+    return out;
+  }, [fieldPlans]);
+  const hiddenByTiming = useMemo(() => {
+    const s = new Set();
+    fieldPlans.forEach(fp => (fp.excludedByTiming || []).forEach(e => s.add(e.name)));
+    return [...s];
+  }, [fieldPlans]);
+  function togglePick(product) {
+    setPicks(prev => {
+      if (prev[product.id]) { const n = { ...prev }; delete n[product.id]; return n; }
+      return { ...prev, [product.id]: { mode: "med", oz: rateForMode(product, "med") } };
+    });
+  }
+  function setRate(id, patch) {
+    setPicks(prev => prev[id] ? { ...prev, [id]: { ...prev[id], ...patch } } : prev);
+  }
+  function loadMix() {
+    setPicks(prev => {
+      const n = { ...prev };
+      mix.items.forEach(it => { if (!n[it.product.id]) n[it.product.id] = { mode: "med", oz: rateForMode(it.product, "med") }; });
+      return n;
     });
   }
   return /*#__PURE__*/React.createElement("div", {
@@ -4405,26 +5372,23 @@ function PlanTab(props) {
     })
   }))), /*#__PURE__*/React.createElement("p", {
     className: "text-[10px] text-[#9CA391] mt-2"
-  }, "Ground-broadcast pasture herbicides are typically applied at 10–20 GPA — 15 is a reasonable starting point, but your product labels may call for a specific range. Both of these remember your sprayer's setup between visits and feed the Spray Plan's water calculation below.")), !readyForPlan ? /*#__PURE__*/React.createElement("div", {
-    className: "text-sm text-[#6B7A5E] bg-white rounded-xl border border-dashed border-[#D8D9CE] p-6 text-center"
-  }, "Select at least one field and the weeds present to generate a plan.") : /*#__PURE__*/React.createElement("div", {
-    className: "space-y-5"
-  }, /*#__PURE__*/React.createElement(SectionLabel, {
-    icon: ClipboardList
-  }, fieldPlans.length > 1 ? `Field Recommendations — ${fieldPlans.length} Fields` : "Field Recommendations"), fieldPlans.map(fp => /*#__PURE__*/React.createElement(FieldPlanSection, {
-    key: fp.name,
-    fieldPlan: fp,
-    defaultOpen: fieldPlans.length <= 2,
-    selection: planSelections[fp.name] || [],
-    onToggleProduct: hid => toggleProduct(fp.name, hid)
-  })), /*#__PURE__*/React.createElement(SprayPlanSection, {
-    fieldPlans: fieldPlans,
-    planSelections: planSelections,
-    sprayerSettings: sprayerSettings,
-    addApplications: addApplications,
-    selectedWeeds: selectedWeeds,
-    weather: weather
-  })));
+  }, "Ground-broadcast pasture herbicides are typically applied at 10–20 GPA — 15 is a reasonable starting point, but your product labels may call for a specific range. Both of these remember your sprayer's setup between visits and feed the tank mix's water calculation below.")),
+    !readyForPlan
+      ? h("div", { className: "text-sm text-[#6B7A5E] bg-white rounded-xl border border-dashed border-[#D8D9CE] p-6 text-center" }, "Select at least one field and the weeds present to generate a plan.")
+      : h("div", { className: "space-y-4" },
+          h(SectionLabel, { icon: ClipboardList }, "Plan"),
+          weedNotes.map((n, i) => h("div", { key: "wn" + i, className: "text-xs rounded-lg px-3 py-2 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-1.5" },
+            h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }), h("span", null, h("b", null, n.weed, ": "), n.text))),
+          hiddenByTiming.length > 0 && h("div", { className: "text-[11px] text-[#9CA391] italic" },
+            "Hidden this month (timing): ", hiddenByTiming.join(", "), ". Tick “Show season-restricted products” above to plan a spot / wiper / dormant pass."),
+          h(RecommendedMixCard, { mix: mix, picks: picks, onLoad: loadMix }),
+          goalGroups.map(g => h(GoalSection, {
+            key: g.goalId, group: g, picks: picks, onToggle: togglePick, onRate: setRate, recIds: mix.ids, targetKind: "weed"
+          })),
+          h(TankMixPanel, {
+            targetKind: "weed", goals: selectedWeeds, goalGroups: goalGroups, fieldPlans: fieldPlans,
+            picks: picks, sprayerSettings: sprayerSettings, addApplications: addApplications, weather: weather
+          })));
 }
 
 /* ============================================================
@@ -4897,6 +5861,30 @@ function ProductCombo({ groups, value, onChange, ariaLabel }) {
           h("span", { className: "text-[10px] uppercase tracking-wide text-[#9CA391] ml-1.5" }, it.group)))));
 }
 
+function LogsTab(props) {
+  const h = React.createElement;
+  const [sub, setSub] = useState("sprays");
+  const pill = (id, label, Icon) => h("button", {
+    key: id,
+    onClick: () => setSub(id),
+    className: `flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border-2 transition-colors ${sub === id ? "border-[#2B4C3F] bg-[#EAF0E6] text-[#23261F] font-semibold" : "border-[#D8D9CE] bg-white text-[#6B7A5E] hover:border-[#B9BFAE]"}`
+  }, h(Icon, { size: 14 }), label);
+  return h("div", { className: "space-y-5" },
+    h("div", { className: "flex gap-2" }, pill("sprays", "Sprays", ClipboardList), pill("cuttings", "Cuttings", Scissors)),
+    sub === "sprays"
+      ? h(LogTab, {
+          applications: props.applications, fieldProfiles: props.fieldProfiles, sprayerSettings: props.sprayerSettings,
+          knownFieldNames: props.knownFieldNames, customProducts: props.customProducts, orgName: props.orgName,
+          onAdd: props.onAdd, onAddMany: props.onAddMany, onRemove: props.onRemove
+        })
+      : h(CuttingTab, {
+          cuttings: props.cuttings, knownFieldNames: props.knownFieldNames,
+          sprayerSettings: props.sprayerSettings, updateSprayerSettings: props.updateSprayerSettings,
+          onAdd: props.onAddCutting, onAddMany: props.onAddManyCuttings, onRemove: props.onRemoveCutting, onRemoveMany: props.onRemoveManyCuttings
+        }),
+    h(BackupCard, { applications: props.applications, cuttings: props.cuttings, fieldProfiles: props.fieldProfiles }));
+}
+
 function LogTab({
   applications,
   fieldProfiles,
@@ -4932,13 +5920,19 @@ function LogTab({
     const entries = [];
     fs.forEach(field => rows.forEach(r => {
       const p = allProducts(r.productId);
+      const isFert = catOf(p) === "fertilizer";
+      const rateNum = parseFloat(r.rate);
+      const nuts = isFert
+        ? deriveFertNutrients(p, rateNum).map(n => (r.nutOverride && r.nutOverride[n.n] != null && r.nutOverride[n.n] !== "") ? { ...n, perAcre: Number(r.nutOverride[n.n]) } : n)
+        : null;
       entries.push({
         date: date || today,
         field,
         category: catOf(p),
         herbicideId: r.productId,
         herbicideName: p ? p.name : r.productId,
-        rate: r.rate || (p ? (p.rate || [p.rateLow, p.rateHigh].filter(Boolean).join("–") + (p.rateUnit ? " " + p.rateUnit : "")) : "")
+        rate: r.rate || (p ? (p.rate || [p.rateLow, p.rateHigh].filter(Boolean).join("–") + (p.rateUnit ? " " + p.rateUnit : "")) : ""),
+        ...(isFert && nuts && nuts.length ? { nutrients: nuts } : {})
       });
     }));
     onAddMany(entries);
@@ -4973,14 +5967,32 @@ function LogTab({
         h("div", null,
           h("label", { className: "text-xs text-[#6B7A5E] mb-1 block" }, "Product(s) & rate"),
           h("div", { className: "space-y-2" },
-            rows.map((r, i) => h("div", { key: i, className: "flex gap-2" },
-              productSelect(i, r),
-              h("input", { type: "text", placeholder: "Rate used (blank = label rate)", value: r.rate, onChange: e => setRow(i, { rate: e.target.value }) }),
-              rows.length > 1 && h("button", {
-                type: "button", "aria-label": "Remove this product row", title: "Remove",
-                onClick: () => setRows(rs => rs.filter((_, j) => j !== i)),
-                className: "px-2 shrink-0", style: { background: "none", border: "none", cursor: "pointer", color: "#B9503F" }
-              }, h(Trash2, { size: 14 })))),
+            rows.map((r, i) => {
+              const prod = allProducts(r.productId);
+              const isFert = catOf(prod) === "fertilizer";
+              const derived = isFert ? deriveFertNutrients(prod, parseFloat(r.rate)) : [];
+              return h("div", { key: i, className: "space-y-1.5" },
+                h("div", { className: "flex gap-2" },
+                  productSelect(i, r),
+                  h("input", { type: "text", placeholder: isFert ? "lb/ac (gal/ac if liquid)" : "Rate used (blank = label rate)", value: r.rate, onChange: e => setRow(i, { rate: e.target.value }) }),
+                  rows.length > 1 && h("button", {
+                    type: "button", "aria-label": "Remove this product row", title: "Remove",
+                    onClick: () => setRows(rs => rs.filter((_, j) => j !== i)),
+                    className: "px-2 shrink-0", style: { background: "none", border: "none", cursor: "pointer", color: "#B9503F" }
+                  }, h(Trash2, { size: 14 }))),
+                isFert && derived.length > 0 && h("div", { className: "flex flex-wrap items-center gap-2 pl-1 text-xs text-[#6B7A5E]" },
+                  "≈ per acre:",
+                  derived.map(n => h("span", { key: n.n, className: "flex items-center gap-1" },
+                    h("b", null, n.n),
+                    h("input", {
+                      type: "number", className: "w-16",
+                      value: (r.nutOverride && r.nutOverride[n.n] != null && r.nutOverride[n.n] !== "") ? r.nutOverride[n.n] : n.perAcre,
+                      onChange: e => setRow(i, { nutOverride: { ...(r.nutOverride || {}), [n.n]: e.target.value } })
+                    }),
+                    n.unit)),
+                  h("span", { className: "text-[10px] text-[#9CA391]" }, "counts toward the field's yearly target")),
+                isFert && derived.length === 0 && r.rate && h("div", { className: "pl-1 text-[10px] text-[#B98A3F]" }, "No N-P-K analysis on file for this product — this won't count toward a yearly target."));
+            }),
             h("button", {
               type: "button", onClick: () => setRows(rs => [...rs, { productId: HERBICIDES[0].id, rate: "" }]),
               className: "text-xs text-[#2B4C3F] font-medium flex items-center gap-1", style: { background: "none", border: "none", cursor: "pointer", padding: 0 }
@@ -5079,6 +6091,8 @@ function groupCuttingsByDate(cuttings) {
 function CuttingTab({
   cuttings,
   knownFieldNames,
+  sprayerSettings,
+  updateSprayerSettings,
   onAdd,
   onAddMany,
   onRemove,
@@ -5090,6 +6104,7 @@ function CuttingTab({
   const [fields, setFields] = useState([]);
   const [notes, setNotes] = useState("");
   const [done, setDone] = useState(null);
+  const cutInterval = (sprayerSettings && sprayerSettings.cutIntervalDays != null) ? sprayerSettings.cutIntervalDays : 30;
 
   function submit() {
     const fs = fields.map(s => s.trim()).filter(Boolean);
@@ -5122,6 +6137,19 @@ function CuttingTab({
         }, "Add to log"),
         done && h("div", { className: "text-xs rounded px-2.5 py-2 bg-[#EAF0E6] text-[#2B4C3F] flex items-center gap-1.5 font-medium" },
           h(Check, { size: 14, className: "shrink-0" }), " ", done))),
+    updateSprayerSettings && h("div", { className: "bg-white rounded-xl border border-[#D8D9CE] p-5" },
+      h(SectionLabel, { icon: CalendarDays }, "Projected Cutting Interval"),
+      h("p", { className: "text-xs text-[#6B7A5E] mb-3 -mt-1" }, "How many days you typically go between hay cuttings. The calendar uses this to project upcoming cuts and the post-cut nitrogen and stem-maggot windows — each one shifts as you log the real cuttings."),
+      h("div", { className: "flex items-end gap-2" },
+        h("div", null,
+          h("label", { className: "text-xs text-[#6B7A5E] mb-1 block" }, "Days between cuttings"),
+          h("input", {
+            type: "number", min: 14, max: 90, value: cutInterval,
+            onChange: e => updateSprayerSettings({ cutIntervalDays: e.target.value === "" ? "" : Number(e.target.value) }),
+            onBlur: e => { const n = Math.min(90, Math.max(14, Math.round(Number(e.target.value) || 30))); updateSprayerSettings({ cutIntervalDays: n }); },
+            className: "w-24"
+          })),
+        h("span", { className: "text-xs text-[#8A9080] pb-2" }, "typical for bermuda hay is 28–35 days"))),
     h("div", { className: "bg-white rounded-xl border border-[#D8D9CE] p-5" },
       h(SectionLabel, { icon: History }, "Cutting History"),
       cuttings.length === 0
@@ -5275,7 +6303,8 @@ function FieldsTab({
   const [expanded, setExpanded] = useState(null);
   const [editing, setEditing] = useState(null);
   const [editForm, setEditForm] = useState({});
-  const [newFieldName, setNewFieldName] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [addForm, setAddForm] = useState(null);
   const fieldNames = useMemo(() => {
     const names = new Set();
     applications.forEach(a => a.field && names.add(a.field));
@@ -5307,6 +6336,26 @@ function FieldsTab({
     await onUpsert(name, { ...editForm, soilTest: hasSoil ? st : null });
     setEditing(null);
   }
+  function startAdd() {
+    setAddForm({
+      name: "", acreage: "", useType: "pasture", soil: SOIL_TYPES[0], grass: GRASS_TYPES[0],
+      nearWater: true, distToWater: 150, yieldGoal: "", soilTest: { ph: "", pPpm: "", kPpm: "" }, notes: ""
+    });
+    setAdding(true);
+  }
+  function cancelAdd() { setAdding(false); setAddForm(null); }
+  async function saveAdd() {
+    const nm = (addForm.name || "").trim();
+    if (!nm) return;
+    if (fieldProfiles[nm]) { window.alert(`A field named "${nm}" already exists.`); return; }
+    const st = addForm.soilTest || {};
+    const hasSoil = ["ph", "pPpm", "kPpm"].some(k => String(st[k] ?? "").trim() !== "");
+    const { name, ...rest } = addForm;
+    await onUpsert(nm, { ...rest, soilTest: hasSoil ? st : null });
+    setAdding(false);
+    setAddForm(null);
+    setExpanded(nm);
+  }
   function buildTimeline(name) {
     const apps = applications.filter(a => a.field === name).map(a => ({
       ...a,
@@ -5320,10 +6369,8 @@ function FieldsTab({
   }
   return /*#__PURE__*/React.createElement("div", {
     className: "space-y-4"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-col sm:flex-row gap-2"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "relative flex-1"
+  }, fieldNames.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "relative"
   }, /*#__PURE__*/React.createElement(Search, {
     size: 14,
     className: "absolute left-3 top-1/2 -translate-y-1/2 text-[#B9BFAE]"
@@ -5333,34 +6380,9 @@ function FieldsTab({
     onChange: e => setQ(e.target.value),
     placeholder: "Search fields…",
     className: "pl-8"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: newFieldName,
-    onChange: e => setNewFieldName(e.target.value),
-    placeholder: "Add a field by name…",
-    className: "w-48"
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: async () => {
-      if (!newFieldName.trim()) return;
-      await onUpsert(newFieldName, {
-        soil: SOIL_TYPES[0],
-        grass: GRASS_TYPES[0],
-        nearWater: true,
-        distToWater: 150,
-        acreage: ""
-      });
-      setNewFieldName("");
-    },
-    className: "px-3 py-2 rounded text-sm flex items-center gap-1 whitespace-nowrap",
-    style: BTN_SOLID_STYLE
-  }, /*#__PURE__*/React.createElement(Plus, {
-    size: 14,
-    color: "#FFFFFF"
-  }), " Add field"))), filtered.length === 0 && /*#__PURE__*/React.createElement("div", {
+  })), fieldNames.length === 0 && !adding && /*#__PURE__*/React.createElement("div", {
     className: "text-sm text-[#6B7A5E] bg-white rounded-xl border border-dashed border-[#D8D9CE] p-6 text-center"
-  }, "No fields yet. Log an application or cutting with a field name, or add one above — it'll remember soil, grass type, water distance, and full history here between sessions."), filtered.map(name => {
+  }, "No fields yet. Add one with the button below — it'll remember soil, grass type, water distance, and full history here between sessions."), filtered.map(name => {
     const profile = fieldProfiles[name] || {};
     const timeline = buildTimeline(name);
     const isOpen = expanded === name;
@@ -5534,7 +6556,46 @@ function FieldsTab({
     }, /*#__PURE__*/React.createElement(Trash2, {
       size: 11
     }), " Remove field profile (history stays in the logs)")));
-  }), h(BackupCard, { applications: applications, cuttings: cuttings, fieldProfiles: fieldProfiles }));
+  }),
+  (adding && addForm)
+    ? h("div", { className: "bg-white rounded-xl border-2 border-[#2B4C3F] p-4 space-y-3" },
+        h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080]" }, "New field"),
+        h("div", null,
+          h("label", { className: "text-[10px] text-[#6B7A5E] block" }, "Field name"),
+          h("input", { type: "text", autoFocus: true, value: addForm.name, onChange: e => setAddForm(f => ({ ...f, name: e.target.value })), placeholder: "e.g. North Pasture", className: "w-full" })),
+        h("div", { className: "grid grid-cols-2 gap-2" },
+          h("div", null, h("label", { className: "text-[10px] text-[#6B7A5E] block" }, "Acreage"),
+            h("input", { type: "number", value: addForm.acreage, onChange: e => setAddForm(f => ({ ...f, acreage: e.target.value })), className: "w-full", placeholder: "e.g. 24" })),
+          h("div", null, h("label", { className: "text-[10px] text-[#6B7A5E] block" }, "Use"),
+            h("select", { value: addForm.useType, onChange: e => setAddForm(f => ({ ...f, useType: e.target.value })) },
+              h("option", { value: "pasture" }, "Grazed pasture"),
+              h("option", { value: "hay" }, "Hay"),
+              h("option", { value: "both" }, "Both (graze + hay)"),
+              h("option", { value: "other" }, "Other (lawn / ornamental / not grazed or cut)")))),
+        h("div", { className: "grid grid-cols-2 gap-2" },
+          h("div", null, h("label", { className: "text-[10px] text-[#6B7A5E] block" }, "Soil type"),
+            h("select", { value: addForm.soil, onChange: e => setAddForm(f => ({ ...f, soil: e.target.value })) }, SOIL_TYPES.map(s => h("option", { key: s }, s)))),
+          h("div", null, h("label", { className: "text-[10px] text-[#6B7A5E] block" }, "Grass type"),
+            h("select", { value: addForm.grass, onChange: e => setAddForm(f => ({ ...f, grass: e.target.value })) }, GRASS_TYPES.map(g => h("option", { key: g }, g))))),
+        h("label", { className: "flex items-center gap-2 text-sm" },
+          h("input", { type: "checkbox", checked: addForm.nearWater, onChange: e => setAddForm(f => ({ ...f, nearWater: e.target.checked })), className: "w-4 h-4" }), "Borders a lake, pond, or creek"),
+        addForm.nearWater && h("div", null, h("label", { className: "text-[10px] text-[#6B7A5E] block" }, "Distance to water (ft)"),
+          h("input", { type: "number", value: addForm.distToWater, onChange: e => setAddForm(f => ({ ...f, distToWater: Number(e.target.value) })), className: "w-32" })),
+        h("div", { className: "border-t border-[#EFF1E8] pt-2" },
+          h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1" }, "Soil test & fertility"),
+          h("div", { className: "grid grid-cols-2 sm:grid-cols-4 gap-2" },
+            h("div", null, h("label", { className: "text-[10px] text-[#6B7A5E] block" }, "Hay yield goal (t/ac/yr)"),
+              h("input", { type: "number", value: addForm.yieldGoal, onChange: e => setAddForm(f => ({ ...f, yieldGoal: e.target.value })), className: "w-full", placeholder: "e.g. 5" })),
+            [["ph", "Soil pH"], ["pPpm", "P (ppm)"], ["kPpm", "K (ppm)"]].map(([k, lbl]) =>
+              h("div", { key: k }, h("label", { className: "text-[10px] text-[#6B7A5E] block" }, lbl),
+                h("input", { type: "number", value: addForm.soilTest[k], onChange: e => setAddForm(f => ({ ...f, soilTest: { ...f.soilTest, [k]: e.target.value } })), className: "w-full" })))),
+          h("p", { className: "text-[10px] text-[#9CA391] mt-1" }, "From a routine soil test. Leave blank and the Fertilizer planner falls back to forage / yield-goal estimates.")),
+        h("div", null, h("label", { className: "text-[10px] text-[#6B7A5E] block" }, "Notes"),
+          h("input", { type: "text", value: addForm.notes, onChange: e => setAddForm(f => ({ ...f, notes: e.target.value })), placeholder: "Anything worth remembering about this field" })),
+        h("div", { className: "flex gap-2 pt-1" },
+          h("button", { onClick: saveAdd, disabled: !addForm.name.trim(), className: "px-3 py-1.5 rounded text-xs flex items-center gap-1", style: BTN_SOLID_STYLE }, h(Check, { size: 12, color: "#FFFFFF" }), " Save field"),
+          h("button", { onClick: cancelAdd, className: "px-3 py-1.5 rounded text-xs", style: BTN_GHOST_STYLE }, "Cancel")))
+    : h("button", { onClick: startAdd, className: "w-full sm:w-auto px-4 py-2.5 rounded-lg text-sm flex items-center justify-center gap-1.5", style: BTN_SOLID_STYLE }, h(Plus, { size: 15, color: "#FFFFFF" }), " Add field"));
 }
 
 /* ============================================================
@@ -5566,6 +6627,7 @@ function calendarEventsForMonth(year, m0, data) {
 
   const apps = (data.applications || []).filter(a => a.date);
   const cuts = (data.cuttings || []).filter(c => c.date && c.field);
+  const cutInterval = Math.min(90, Math.max(14, Math.round(Number(data.cutIntervalDays) || 30)));
   const fields = [...new Set([...Object.keys(data.fieldProfiles || {}), ...apps.map(a => a.field), ...cuts.map(c => c.field)].filter(Boolean))];
 
   // ---- What actually happened this month (from the logs) ----
@@ -5607,12 +6669,12 @@ function calendarEventsForMonth(year, m0, data) {
     if (seed) {
       let d = seed;
       for (let n = 0; n < 8; n++) {
-        const cutISO = n === 0 ? d : shiftISO(d, { days: 30 });
+        const cutISO = n === 0 ? d : shiftISO(d, { days: cutInterval });
         d = cutISO;
         const mm = Number(cutISO.slice(5, 7));
         if (mm < 4 || mm > 9) break;
         const logged = !!fCuts.find(c => c.date === cutISO);
-        if (!logged) push(cutISO, field, "cut", "Hay cut (projected)", "Projected on a ~30-day cutting cycle — this shifts as you actually cut.", "projected");
+        if (!logged) push(cutISO, field, "cut", "Hay cut (projected)", `Projected on a ~${cutInterval}-day cutting cycle — this shifts as you actually cut. Set the interval on the Logs tab.`, "projected");
         if (isHay) {
           push(shiftISO(cutISO, { days: 7 }), field, "fert", "Post-cut nitrogen", "Once regrowth greens up, ~50–60 lb N/ac to feed the next cutting.", logged ? "due" : "projected");
           if (mm >= 7 && mm <= 9) push(shiftISO(cutISO, { days: 8 }), field, "pest", "Stem maggot check", "7–10 days after this cut, as regrowth greens up.", "window");
@@ -5623,7 +6685,8 @@ function calendarEventsForMonth(year, m0, data) {
     const fertApps = fApps.filter(a => a.category === "fertilizer" || /fertilizer/i.test(a.herbicideId || ""));
     if (fertApps.length) {
       const last = fertApps[fertApps.length - 1];
-      push(shiftISO(last.date, { days: 35 }), field, "fert", "Next fertilizer split", `About 35 days since the last fertilizer pass — on a hay cutting cycle the next split is roughly due.`, "due");
+      const splitGap = cutInterval + 5;
+      push(shiftISO(last.date, { days: splitGap }), field, "fert", "Next fertilizer split", `About ${splitGap} days since the last fertilizer pass — on a hay cutting cycle the next split is roughly due.`, "due");
     }
 
     const st = prof.soilTest, ph = st && st.ph ? Number(st.ph) : null;
@@ -5673,11 +6736,11 @@ function collapseCalDated(dated) {
     .sort((a, b) => a.dateISO.localeCompare(b.dateISO));
 }
 
-function CalendarTab({ applications, cuttings, fieldProfiles, weather, orgName, onGoPlan }) {
+function CalendarTab({ applications, cuttings, fieldProfiles, weather, orgName, cutIntervalDays, onGoPlan }) {
   const h = React.createElement;
   const now = new Date();
   const [ref, setRef] = useState({ y: now.getFullYear(), m: now.getMonth() });
-  const data = { applications, cuttings, fieldProfiles, weather };
+  const data = { applications, cuttings, fieldProfiles, weather, cutIntervalDays };
   const events = calendarEventsForMonth(ref.y, ref.m, data);
   const isThisMonth = ref.y === now.getFullYear() && ref.m === now.getMonth();
   const seasonal = events.filter(e => e.seasonal);
