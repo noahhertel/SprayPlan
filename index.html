@@ -1155,10 +1155,11 @@ function computeRecommendations({
       });
     }
     if (h.manureMonths > 0) {
+      const carryActive = (HERB_ACTIVES[h.id] || []).find(a => ["aminopyralid", "picloram", "quinclorac"].includes(a)) || "a residual growth regulator";
       flags.push({
         level: "warn",
         ref: "Carryover",
-        text: `Aminopyralid carryover: don't give away or sell hay/manure from this field for ~${h.manureMonths} months — it can damage broadleaf crops/gardens wherever it ends up.`
+        text: `${h.name} contains ${carryActive}. This is not a wait-before-cutting interval — the hay you cut off this field and manure from stock fed it carry a ~${h.manureMonths}-month plant-back restriction for tomatoes, beans, tobacco, and other sensitive broadleaf crops. Keep the hay and manure on the place; don't sell it, give it away, or compost it.`
       });
     }
     if (rainExpected) {
@@ -1443,15 +1444,16 @@ function analyzeTankMix(selected) {
     });
   }
 
-  // Manure/hay carryover inheritance — worst case governs the whole batch
+  // Manure/hay carryover — residue in the cut hay, not a spray-then-wait interval
   const carry = selected.filter(h => h.manureMonths > 0);
   if (carry.length > 0) {
     const months = Math.max(...carry.map(h => h.manureMonths));
     const acts = new Set(carry.flatMap(h => (HERB_ACTIVES[h.id] || []).filter(a => ["aminopyralid", "picloram", "quinclorac"].includes(a))));
-    const label = [...acts].join(" / ") || "residual growth-regulator";
+    const label = [...acts].join(" / ") || "a residual growth regulator";
+    const multi = carry.length > 1 || selected.length > 1;
     flags.push({
       level: "warn",
-      text: `${carry.map(h => h.name).join(", ")} — ${label} hay / manure / plant-back restriction (~${months} months). Because it's in the mix, the WHOLE batch of hay or manure off this field inherits the longest one, even the parts from the other products.`
+      text: `${carry.map(h => h.name).join(", ")} contain${carry.length === 1 ? "s" : ""} ${label}. This is not a wait-before-cutting interval — the hay you cut off this field, and manure from stock fed that hay, carry a ~${months}-month plant-back restriction that damages tomatoes, beans, tobacco, and other sensitive broadleaf crops.${multi ? " The whole batch inherits the longest one, even hay from the other products in the tank." : ""} Keep the hay and manure on the place; don't sell, give it away, or compost it.`
     });
   }
 
@@ -2012,6 +2014,56 @@ function printSeasonPlan(data, startY, startM, months, orgName) {
   return true;
 }
 
+// Printable "Season Materials" buy list from the fertilizer planner's combined section.
+function printSeasonMaterials({ byNutrient, fieldCount, totalAcres, nutrients, anyDiffer, orgName }) {
+  const w = window.open("", "_blank");
+  if (!w) return false;
+  const esc = s => String(s == null ? "" : s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  const fieldTotal = r => {
+    if (r.prodPerAcre == null) return "—";
+    const v = r.prodPerAcre * r.acres;
+    return r.prodUnit.startsWith("gal") ? `${v.toFixed(0)} gal` : r.prodUnit.startsWith("tons") ? `${v.toFixed(1)} tons` : `${lbToTons(v)} tons`;
+  };
+  const blocks = byNutrient.map(n => {
+    const rows = n.rows.map(r => `<tr>
+      <td>${esc(r.field)} <span class="dim">(${esc(r.acres)} ac)</span></td>
+      <td>${r.perAcre == null ? "—" : esc(r.perAcre + " " + r.unit.replace("/yr", ""))}</td>
+      <td>${r.product ? esc(r.product.name + " " + r.product.analysis) : "—"}</td>
+      <td>${(n.buyTotal && n.buyTotal.dupOf) ? '<span class="dim">in row above</span>' : esc(fieldTotal(r))}</td></tr>`).join("");
+    const foot = !n.buyTotal ? "" : n.buyTotal.dupOf
+      ? `<tr class="dupfoot"><td colspan="4">${esc(n.buyTotal.name)} also covers this — already in the ${esc(n.buyTotal.dupOf)} buy total above. Don't order it twice.</td></tr>`
+      : `<tr class="tot"><td>Buy total</td><td></td><td>${esc(n.buyTotal.name)}</td><td>${esc(n.buyTotal.text)}</td></tr>`;
+    return `<h2>${esc(nutrientLabel(n.nut))}${n.differ ? ' <span class="dim">&middot; varies by field</span>' : ""}</h2>
+      <table><thead><tr><th>Field</th><th>Rate/ac</th><th>Product</th><th>Field total</th></tr></thead>
+      <tbody>${rows}${foot}</tbody></table>`;
+  }).join("");
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Season Materials</title>
+  <style>
+    body{font:12px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;color:#111;margin:24px;}
+    .org{font-size:13px;font-weight:700;margin-bottom:2px;}
+    h1{font-size:16px;margin:0 0 2px;} .sub{color:#555;font-size:11px;margin-bottom:14px;}
+    h2{font-size:12px;margin:16px 0 4px;text-transform:uppercase;letter-spacing:.04em;color:#333;}
+    table{border-collapse:collapse;width:100%;margin-bottom:4px;} th,td{border:1px solid #999;padding:3px 6px;text-align:left;vertical-align:top;}
+    th{background:#eee;font-size:10px;text-transform:uppercase;letter-spacing:.03em;}
+    tr.tot td{font-weight:700;background:#f6f6f6;}
+    tr.dupfoot td{color:#666;font-style:italic;font-size:11px;}
+    .dim{color:#888;} .warn{color:#7A5A12;background:#FCF3DC;padding:4px 8px;border-radius:4px;font-size:11px;}
+    .foot{margin-top:14px;color:#555;font-size:10px;}
+    @media print{body{margin:12mm;} h2,table{page-break-inside:avoid;}}
+  </style></head><body>
+  ${orgName ? `<div class="org">${esc(orgName)}</div>` : ""}
+  <h1>Season Materials &mdash; All Fields</h1>
+  <div class="sub">SprayPlan &middot; generated ${esc(new Date().toLocaleString())} &middot; ${esc(fieldCount)} field${fieldCount === 1 ? "" : "s"} &middot; ${esc(totalAcres || "—")} ac &middot; ${esc(nutrients.map(nutrientLabel).join(" · "))}</div>
+  ${anyDiffer ? '<p class="warn">These fields don\'t all take the same rate &mdash; different soil tests, use, or yield goals. Follow the per-field rows, not one blanket rate.</p>' : ""}
+  ${blocks}
+  <div class="foot">Year totals only &mdash; actual applications get built and logged as batches on each field's card in SprayPlan. Not a substitute for a current soil test or the product label.</div>
+  </body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { try { w.print(); } catch (e) {} }, 250);
+  return true;
+}
+
 function SprayRecordCard({ applications, fieldProfiles, orgName }) {
   const h = React.createElement;
   const [rupOnly, setRupOnly] = useState(false);
@@ -2276,6 +2328,38 @@ function recommendedFertSet(fertNeeds, form) {
   if (fertNeeds.s) sel["S"] = "ammsulfate";
   if (fertNeeds.lime) sel["Lime"] = "aglime";
   return sel;
+}
+
+// Per-nutrient soil-test read for the selected fields: does this nutrient need improvement?
+// nutId is a FERT_NUTRIENTS id ("n" | "p" | "k" | "s" | "lime"). Thresholds mirror computeFertilizerPlan.
+function fertSoilStatus(nutId, profiles) {
+  const list = (profiles || []).filter(Boolean);
+  if (list.length === 0) return { level: "nofield" };
+  if (nutId === "n") return { level: "na", label: "not soil-tested", tip: "A soil test doesn't measure plant-available nitrogen — the rate comes from your yield goal and what grazing or each cutting removes." };
+  if (nutId === "s") return { level: "na", label: "not soil-tested", tip: "Sulfur isn't on a standard soil test. Sandy, low-organic-matter fields run short; pale color that nitrogen won't green up is the tell." };
+  const key = { p: "pPpm", k: "kPpm", lime: "ph" }[nutId];
+  const rate = v => {
+    const n = Number(v);
+    if (nutId === "p") return n >= 50 ? "ok" : n >= 25 ? "marginal" : "short";
+    if (nutId === "k") return n >= 200 ? "ok" : n >= 125 ? "marginal" : "short";
+    return n >= 6.2 ? "ok" : n >= 5.8 ? "marginal" : "short"; // lime / pH
+  };
+  const rated = list.map(p => {
+    const v = p.soilTest && p.soilTest[key];
+    return (v === "" || v == null) ? null : rate(v);
+  });
+  const have = rated.filter(Boolean);
+  const noun = nutId === "lime" ? "pH" : nutId.toUpperCase();
+  if (have.length === 0) return { level: "notest", label: "no soil test", tip: `Add ${list.length > 1 ? "these fields'" : "this field's"} soil test on the Fields tab to see whether ${nutId === "lime" ? "lime is needed" : noun + " is needed"}.` };
+  const worst = have.includes("short") ? "short" : have.includes("marginal") ? "marginal" : "ok";
+  const mixed = new Set(have).size > 1 || have.length < list.length;
+  const tip = {
+    short: `Soil-test ${noun} is low${mixed ? " on at least one selected field" : ""} — this one needs building up.`,
+    marginal: `Soil-test ${noun} is medium${mixed ? " on at least one field" : ""} — a maintenance rate keeps it from slipping.`,
+    ok: `Soil-test ${noun} is adequate${mixed ? " on the selected fields that have a test" : ""} — apply only what hay or grazing removes, if anything.`
+  }[worst];
+  const label = { short: "low — build up", marginal: "medium — maintain", ok: "adequate" }[worst] + (mixed ? " · varies" : "");
+  return { level: worst, label, tip };
 }
 
 // Nutrients one product + rate delivers (rate: lb/ac dry, gal/ac liquid, tons/ac lime).
@@ -3379,6 +3463,7 @@ function SprayWindowStrip({ weather }) {
 
 function WeatherPanel({ zip, setZip, weather, status, error, onLoad }) {
   const h = React.createElement;
+  const [showDetail, setShowDetail] = useState(false);
   const submit = () => onLoad(zip);
   const stat = (label, value) => h("div", null,
     h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080]" }, label),
@@ -3432,22 +3517,17 @@ function WeatherPanel({ zip, setZip, weather, status, error, onLoad }) {
         (weather.hoursToRain != null ? " · next rain ~" + weather.hoursToRain + " hr out" : " · no rain in the forecast window")
       ),
       h(WeatherFlags, { flags: weather.flags }),
-      h(SprayWindowStrip, { weather }),
-      weather.forecast && weather.forecast.length > 0 && h("div", { className: "grid grid-cols-3 gap-2 pt-1" },
-        weather.forecast.map(d => h("div", {
-          key: d.date,
-          className: "rounded-lg bg-[#F6F7F2] border border-[#EAEBE3] px-2 py-1.5 text-center"
-        },
-          h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080]" },
-            new Date(d.date + "T12:00:00").toLocaleDateString([], { weekday: "short" })),
-          h("div", { className: "text-xs mono text-[#23261F]" },
-            (d.hiF != null ? Math.round(d.hiF) : "–") + "° / " + (d.loF != null ? Math.round(d.loF) : "–") + "°"),
-          h("div", { className: "text-[10px] mono text-[#6B7A5E]" },
-            (d.rainProb != null ? d.rainProb + "% rain" : "") + (d.windMax != null ? " · " + Math.round(d.windMax) + "mph" : ""))
-        ))
-      ),
-      h("p", { className: "text-[11px] text-[#8A9080] leading-snug" },
-        "Feeds the recent-high-temp, days-since-rain, and rain-expected inputs below automatically. Wind, Delta-T, and inversion risk are drift factors the product rules don't cover — check them here before every application.")
+      h("button", { onClick: () => setShowDetail(v => !v), className: "text-[11px] text-[#2B4C3F] font-medium flex items-center gap-1", style: { background: "none", border: "none", cursor: "pointer", padding: 0 } },
+        h(ChevronRight, { size: 12, className: showDetail ? "rotate-90" : "" }), showDetail ? "Hide hourly window & forecast" : "Hourly window & 3-day forecast"),
+      showDetail && h(React.Fragment, null,
+        h(SprayWindowStrip, { weather }),
+        weather.forecast && weather.forecast.length > 0 && h("div", { className: "grid grid-cols-3 gap-2 pt-1" },
+          weather.forecast.map(d => h("div", { key: d.date, className: "rounded-lg bg-[#F6F7F2] border border-[#EAEBE3] px-2 py-1.5 text-center" },
+            h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080]" }, new Date(d.date + "T12:00:00").toLocaleDateString([], { weekday: "short" })),
+            h("div", { className: "text-xs mono text-[#23261F]" }, (d.hiF != null ? Math.round(d.hiF) : "–") + "° / " + (d.loF != null ? Math.round(d.loF) : "–") + "°"),
+            h("div", { className: "text-[10px] mono text-[#6B7A5E]" }, (d.rainProb != null ? d.rainProb + "% rain" : "") + (d.windMax != null ? " · " + Math.round(d.windMax) + "mph" : ""))))),
+        h("p", { className: "text-[11px] text-[#8A9080] leading-snug" },
+          "Temp, days-since-rain, and rain-expected auto-fill the Conditions inputs below. Wind, Delta-T, and inversion risk are drift factors the product rules don't cover — check them before every application."))
     )
   );
 }
@@ -3896,7 +3976,7 @@ function SprayPlanner() {
     className: "display text-white text-xl font-bold leading-none"
   }, orgProfile.name ? orgProfile.name : "SPRAYPLAN"), /*#__PURE__*/React.createElement("div", {
     className: "text-[10px] uppercase tracking-widest text-[#9CA391]"
-  }, orgProfile.name ? "SprayPlan · Pasture Chemical Planner" : "Pasture Chemical Planner"))), saveError && /*#__PURE__*/React.createElement("div", {
+  }, "Pasture Chemical Planner"))), saveError && /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#E8B84B] flex items-center gap-1"
   }, /*#__PURE__*/React.createElement(AlertTriangle, {
     size: 13
@@ -3929,7 +4009,7 @@ function SprayPlanner() {
     icon: BookOpen
   }, {
     id: "profile",
-    label: "Profile",
+    label: "Settings",
     icon: Home
   }].map(t => /*#__PURE__*/React.createElement("button", {
     key: t.id,
@@ -3968,7 +4048,7 @@ function SprayPlanner() {
     cutIntervalDays: sprayerSettings.cutIntervalDays,
     onGoPlan: () => setTab("plan")
   }), tab === "plan" && /*#__PURE__*/React.createElement(PlanRouter, {
-    planMode, setPlanMode,
+    planMode, setPlanMode, orgName: orgProfile.name,
     fieldProfiles, selectedFieldNames, toggleField,
     month, setMonth, daysSinceRain, setDaysSinceRain, rainExpected, setRainExpected,
     recentTemp, setRecentTemp, sprayerSettings, updateSprayerSettings,
@@ -4007,6 +4087,8 @@ function SprayPlanner() {
   }), tab === "profile" && /*#__PURE__*/React.createElement(ProfileTab, {
     orgProfile: orgProfile,
     onSave: saveOrgProfile,
+    sprayerSettings: sprayerSettings,
+    updateSprayerSettings: updateSprayerSettings,
     applications: applications,
     cuttings: cuttings,
     fieldProfiles: fieldProfiles
@@ -4027,6 +4109,76 @@ function FlagList({ flags, className }) {
       key: i,
       className: `text-xs rounded px-2.5 py-1.5 flex items-start gap-1.5 ${FLAG_STYLES[f.level] || FLAG_STYLES.info}`
     }, h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }), flagRefChip(f.ref), h("span", null, f.text))));
+}
+
+// Collect every tank-mix / weather / per-field flag for the weed or pest plan the
+// user has actually built, for the pre-spray briefing at the bottom of the tab.
+function buildTankBriefingFlags({ picks, goalGroups, mix, weather, kind, weedNotes }) {
+  const PRODUCTS = kind === "pest" ? INSECTICIDES : HERBICIDES;
+  const analyzeFn = kind === "pest" ? analyzePestMix : analyzeTankMix;
+  const out = [];
+  ((weather && weather.flags) || []).forEach(f => out.push({ ...f }));
+  const pickedProducts = Object.keys(picks || {}).map(id => PRODUCTS.find(p => p.id === id)).filter(Boolean);
+  if (pickedProducts.length) {
+    const a = analyzeFn(pickedProducts);
+    (a.flags || []).forEach(f => out.push({ ...f }));
+    const v = vetMix(pickedProducts, kind === "pest" ? "pest" : "weed");
+    (v.blocks || []).forEach(b => out.push({ level: "danger", ref: "Safety check", text: b + "." }));
+    (v.reviews || []).forEach(r => out.push({ level: "warn", ref: "Safety check", text: "Worth a look: " + r + "." }));
+    if (!a.flags.some(f => f.level === "danger") !== v.ok) out.push({ level: "danger", ref: "Safety check", text: "The two independent compatibility checks disagree on this combination — treat it as unverified until you confirm against the product labels." });
+    (goalGroups || []).forEach(g => (g.products || []).forEach(e => {
+      if (!picks[e.product.id]) return;
+      (e.fieldFlags || []).forEach(ff => out.push({ level: ff.level, ref: e.product.name, text: ff.text, field: ff.field }));
+    }));
+  } else if (mix && mix.items && mix.items.length) {
+    (mix.flags || []).forEach(f => { if (f.level !== "info") out.push({ ...f }); });
+    if (mix.disagreement) out.push({ level: "danger", ref: "Safety check", text: "The two independent compatibility checks disagree on the recommended mix — treat it as unverified until you confirm it against the product labels." });
+    ((mix.vetReviews) || []).forEach(r => out.push({ level: "warn", ref: "Safety check", text: "Worth a look: " + r + "." }));
+  }
+  (weedNotes || []).forEach(n => out.push({ level: "warn", ref: n.weed, text: n.text }));
+  return out;
+}
+
+// Bottom-of-tab consolidated safety section — red/amber/green notes, deduped and grouped.
+function PreSprayBriefing({ flags }) {
+  const h = React.createElement;
+  const seen = new Map();
+  const LVL = { danger: 3, warn: 2, info: 1 };
+  (flags || []).forEach(f => {
+    if (!f || !f.text) return;
+    // dedupe on the message itself (first ~60 chars, punctuation-stripped) so the same
+    // warning raised per-product and mix-level collapses to one row
+    const sig = String(f.text).toLowerCase().replace(/[^a-z0-9 ]/g, "").slice(0, 120);
+    if (!seen.has(sig)) {
+      seen.set(sig, { level: f.level || "info", ref: f.ref, text: f.text, fields: f.field ? [f.field] : [] });
+    } else {
+      const cur = seen.get(sig);
+      if ((LVL[f.level] || 1) > (LVL[cur.level] || 1)) { cur.level = f.level; cur.ref = f.ref; cur.text = f.text; }
+      if (f.field && !cur.fields.includes(f.field)) cur.fields.push(f.field);
+    }
+  });
+  const items = [...seen.values()];
+  const groups = [
+    { level: "danger", label: "Stop — resolve before you spray", tone: "bg-[#FBEAE6] text-[#8C2E1F]", dot: "#C0392B" },
+    { level: "warn", label: "Check before you go", tone: "bg-[#FCF3DC] text-[#7A5A12]", dot: "#B98A3F" },
+    { level: "info", label: "Good to know", tone: "bg-[#EAF0E6] text-[#3F5A34]", dot: "#5E7A52" }
+  ];
+  return h("div", { className: "bg-white rounded-xl border-2 border-[#2B4C3F] p-4 space-y-3" },
+    h("div", { className: "flex items-center gap-2" }, h(AlertTriangle, { size: 16, className: "text-[#2B4C3F]" }),
+      h("h3", { className: "font-semibold text-sm uppercase tracking-wide text-[#2B4C3F]", style: { letterSpacing: "0.06em" } }, "Read & Understand Before Spraying")),
+    h("p", { className: "text-xs text-[#6B7A5E] -mt-1" }, "Every note the planner raised for these picks, fields, and conditions, gathered in one place. It's a summary — the product label is the legal authority, and jar-test any tank mix before a full batch."),
+    items.length === 0
+      ? h("p", { className: "text-xs text-[#3F5A34] bg-[#EAF0E6] rounded px-2.5 py-2" }, "Nothing flagged for the current selections. Still read every product label and jar-test the tank mix before a full batch.")
+      : groups.map(g => {
+          const gi = items.filter(it => it.level === g.level);
+          if (gi.length === 0) return null;
+          return h("div", { key: g.level, className: "space-y-1.5" },
+            h("div", { className: "text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1.5", style: { color: g.dot } },
+              h("span", { style: { width: 8, height: 8, borderRadius: 999, background: g.dot, display: "inline-block" } }), g.label, " (", gi.length, ")"),
+            gi.map((it, i) => h("div", { key: i, className: `text-xs rounded px-2.5 py-1.5 flex items-start gap-1.5 ${g.tone}` },
+              h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }), flagRefChip(it.ref),
+              h("span", null, it.fields && it.fields.length ? h("b", null, it.fields.join(", ") + ": ") : null, it.text))));
+        }));
 }
 
 function FieldPicker({ fieldProfiles, selected, onToggle }) {
@@ -4082,7 +4234,7 @@ function ConditionsCard({ month, setMonth, recentTemp, setRecentTemp, daysSinceR
           h("button", { onClick: () => setOverride(true), className: "text-[#2B4C3F] font-medium underline", style: { background: "none", border: "none", cursor: "pointer", padding: 0 } }, "Override manually"))));
   }
   return h("div", { className: "bg-white rounded-xl border border-[#D8D9CE] p-5" },
-    h(SectionLabel, { icon: CloudRain }, "Today's Conditions"),
+    h(SectionLabel, { icon: CloudRain }, "Conditions"),
     fullGrid,
     weather && h("button", { onClick: () => setOverride(false), className: "text-[11px] text-[#8A9080] underline mt-2", style: { background: "none", border: "none", cursor: "pointer", padding: 0 } }, "Use ZIP weather instead"));
 }
@@ -4210,7 +4362,6 @@ function PestPlanTab(props) {
       h("p", { className: "text-[10px] text-[#9CA391] mt-2" }, "Scout before you spray — most of these have an economic threshold (e.g. 2–3 fall armyworm larvae per square foot in hay). Photos from Wikimedia Commons; see img/CREDITS.tsv.")),
     h(WeatherPanel, { zip, setZip, weather, status: weatherStatus, error: weatherError, onLoad: loadWeather }),
     h(ConditionsCard, { month, setMonth, recentTemp, setRecentTemp, daysSinceRain, setDaysSinceRain, rainExpected, setRainExpected, weather }),
-    h(SprayerSetupCard, { sprayerSettings, updateSprayerSettings }),
     !ready
       ? h("div", { className: "text-sm text-[#6B7A5E] bg-white rounded-xl border border-dashed border-[#D8D9CE] p-6 text-center" }, "Select at least one field and the pests present to generate a plan.")
       : h("div", { className: "space-y-4" },
@@ -4218,44 +4369,8 @@ function PestPlanTab(props) {
         hiddenByTiming.length > 0 && h("div", { className: "text-[11px] text-[#9CA391] italic" }, "Out of season this month: ", hiddenByTiming.join(", "), "."),
         h(RecommendedMixCard, { mix: mix, picks: picks, onLoad: loadMix }),
         goalGroups.map(g => h(GoalSection, { key: g.goalId, group: g, picks: picks, onToggle: togglePick, onRate: setRate, recIds: mix.ids, targetKind: "pest" })),
-        h(TankMixPanel, { targetKind: "pest", goals: selectedPests, goalGroups: goalGroups, fieldPlans: pestPlans, picks: picks, sprayerSettings: sprayerSettings, addApplications: addApplications, weather: weather })));
-}
-
-function PestFieldPlanSection({ fieldPlan, defaultOpen, selection, onToggleProduct }) {
-  const h = React.createElement;
-  const { name, profile, cut, recommendations, excludedByTiming } = fieldPlan;
-  const [open, setOpen] = useState(defaultOpen);
-  const acres = Number(profile.acreage) > 0 ? Number(profile.acreage) : 0;
-  const useType = profile.useType || "pasture";
-  return h("div", { className: "bg-white rounded-xl border-2 border-[#D8D9CE] overflow-hidden" },
-    h("button", { onClick: () => setOpen(!open), className: "w-full flex items-center justify-between px-4 py-3 text-left", style: { background: "#F7F8F3" } },
-      h("div", { className: "flex items-center gap-2" }, h(MapPin, { size: 16, className: "text-[#6B7A5E]" }),
-        h("div", null, h("div", { className: "display font-bold text-base leading-tight" }, name),
-          h("div", { className: "text-[11px] text-[#8A9080]" }, acres ? `${acres} ac · ` : "acreage not set · ", profile.grass || "grass not set", profile.nearWater ? ` · ${profile.distToWater ?? "?"} ft to water` : "", cut && cut.daysSinceCut != null ? ` · cut ${cut.daysSinceCut}d ago` : "", " · ", recommendations.length, " match", recommendations.length !== 1 ? "es" : "", selection.length ? ` · ${selection.length} picked` : ""))),
-      h(ChevronRight, { size: 16, className: `text-[#B9BFAE] transition-transform ${open ? "rotate-90" : ""}` })),
-    open && h("div", { className: "p-4 space-y-3" },
-      excludedByTiming && excludedByTiming.length > 0 && h("p", { className: "text-[11px] text-[#9CA391] italic" }, "Season note: ", excludedByTiming.map(e => `${e.name} — ${e.reason}`).join("; "), "."),
-      recommendations.length === 0
-        ? h("div", { className: "text-sm text-[#6B7A5E] bg-[#F7F8F3] rounded-lg p-4 text-center" }, "No product in this set matches that pest combination for ", useType, ". Check the Reference Library, or your county extension entomologist for a current recommendation.")
-        : recommendations.map(({ herbicide: p, hits, flags }) => {
-          const picked = selection.includes(p.id);
-          return h("div", { key: p.id, className: `ticket bg-white rounded-lg border-2 p-4 ${picked ? "border-[#2B4C3F]" : "border-dashed border-[#D8D9CE]"}` },
-            h("div", { className: "flex items-start justify-between gap-3 mb-2" },
-              h("div", { className: "flex items-start gap-2" },
-                h("input", { type: "checkbox", checked: picked, onChange: () => onToggleProduct(p.id), className: "w-4 h-4 mt-1", title: "Add to spray plan" }),
-                h("div", null, h("div", { className: "display text-lg font-bold leading-tight" }, p.name),
-                  h("div", { className: "text-[11px] mono text-[#8A9080]" }, "IRAC GROUP ", p.iracGroup))),
-              h("span", { className: "mono text-[10px] px-2 py-1 rounded bg-[#EFF1E8] text-[#3A3D33] whitespace-nowrap" }, hits.length, " pest match", hits.length > 1 ? "es" : "")),
-            h("div", { className: "text-sm text-[#3A3D33] mb-2 mono space-y-0.5" },
-              h("div", null, h("b", null, "Rate:"), " ", p.rateLowOz === p.rateHighOz ? p.rateLowOz : `${p.rateLowOz}–${p.rateHighOz}`, " ", p.rateUnit,
-                acres > 0 && h("span", { className: "text-[#6B7A5E]" }, " · ", h("b", null, "Total for ", acres, " ac:"), " ", p.rateLowOz === p.rateHighOz ? `${(p.rateLowOz * acres).toFixed(1)} oz` : `${(p.rateLowOz * acres).toFixed(1)}–${(p.rateHighOz * acres).toFixed(1)} oz`)),
-              h("div", { className: "flex flex-wrap gap-x-4" }, h("span", null, h("b", null, "Grazing:"), " ", p.grazing), h("span", null, h("b", null, "Hay:"), " ", p.hay), h("span", null, h("b", null, "REI:"), " ", p.rei, " hr"))),
-            acres === 0 && h("p", { className: "text-[10px] text-[#B98A3F] mb-2" }, "Set this field's acreage on the Fields tab to see total product needed."),
-            h("div", { className: "text-xs text-[#6B7A5E] mb-2" }, "Targets here: ", hits.map(id => (PESTS.find(x => x.id === id) || {}).name).join(", ")),
-            h("div", { className: "text-xs text-[#3A3D33] mb-2" }, p.notes),
-            h("div", { className: "text-xs text-[#6B7A5E]" }, "Timing: ", p.timingWindow),
-            flags.length > 0 && h(FlagList, { flags, className: "mt-3" }));
-        })));
+        h(TankMixPanel, { targetKind: "pest", goals: selectedPests, goalGroups: goalGroups, fieldPlans: pestPlans, picks: picks, sprayerSettings: sprayerSettings, addApplications: addApplications, weather: weather }),
+        h(PreSprayBriefing, { flags: buildTankBriefingFlags({ picks, goalGroups, mix, weather, kind: "pest" }) })));
 }
 
 function analyzePestMix(selected) {
@@ -4420,130 +4535,6 @@ function recommendMix(goalGroups, analyzeFn) {
   };
 }
 
-function PestPlanSection({ pestPlans, planSelections, sprayerSettings, addApplications, selectedPests, weather }) {
-  const h = React.createElement;
-  const [gpa, setGpa] = useState(String(sprayerSettings.defaultGpa || 15));
-  const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [loggedInfo, setLoggedInfo] = useState(null);
-  const [logging, setLogging] = useState(false);
-  useEffect(() => { setGpa(String(sprayerSettings.defaultGpa || 15)); }, [sprayerSettings.defaultGpa]);
-  useEffect(() => { setLoggedInfo(null); }, [planSelections, logDate]);
-
-  const activeFields = pestPlans.filter(fp => (planSelections[fp.name] || []).length > 0);
-  const totalAcres = activeFields.reduce((s, fp) => s + (Number(fp.profile.acreage) > 0 ? Number(fp.profile.acreage) : 0), 0);
-  const productMap = {};
-  activeFields.forEach(fp => {
-    const acres = Number(fp.profile.acreage) > 0 ? Number(fp.profile.acreage) : 0;
-    (planSelections[fp.name] || []).forEach(pid => {
-      const p = INSECTICIDES.find(x => x.id === pid);
-      if (!p) return;
-      if (!productMap[pid]) productMap[pid] = { product: p, fields: [], lowOz: 0, highOz: 0, midOz: 0, missingAcreage: false };
-      productMap[pid].fields.push(fp.name);
-      if (acres > 0) {
-        productMap[pid].lowOz += p.rateLowOz * acres;
-        productMap[pid].highOz += p.rateHighOz * acres;
-        productMap[pid].midOz += (p.rateLowOz + p.rateHighOz) / 2 * acres;
-      } else productMap[pid].missingAcreage = true;
-    });
-  });
-  const products = Object.values(productMap);
-  const selectedProducts = products.map(p => p.product);
-  const pestCoverage = selectedPests.map(pid => {
-    const pest = PESTS.find(x => x.id === pid);
-    return { pest, matched: selectedProducts.filter(p => p.targets.includes(pid)) };
-  });
-  const analysis = selectedProducts.length ? analyzePestMix(selectedProducts) : null;
-  const sprayProducts = products.filter(p => p.product.formulation !== "bait");
-  const baitProducts = products.filter(p => p.product.formulation === "bait");
-  const gpaNum = Number(gpa) || 0;
-  const tankSize = Number(sprayerSettings.tankSizeGal) || 0;
-  const totalSprayVol = totalAcres > 0 && gpaNum > 0 ? totalAcres * gpaNum : 0;
-  const liquidVol = sprayProducts.reduce((s, p) => p.product.formulation === "dry" ? s : s + p.midOz / 128, 0);
-  const waterGal = totalSprayVol - liquidVol;
-  const loads = tankSize > 0 && totalSprayVol > 0 ? Math.ceil(totalSprayVol / tankSize) : 1;
-
-  async function logIt() {
-    const entries = [];
-    for (const fp of activeFields) {
-      const snap = recordSnapshot(fp.profile, weather, sprayerSettings);
-      for (const pid of (planSelections[fp.name] || [])) {
-        const p = INSECTICIDES.find(x => x.id === pid);
-        if (!p) continue;
-        entries.push({
-          date: logDate, field: fp.name, category: "insecticide",
-          herbicideId: p.id, herbicideName: p.name, rate: p.rate,
-          pests: selectedPests, useType: fp.profile.useType || "pasture",
-          ...snap
-        });
-      }
-    }
-    setLogging(true);
-    await addApplications(entries);
-    setLogging(false);
-    const fc = new Set(entries.map(e => e.field)).size;
-    setLoggedInfo(`Logged ${entries.length} application${entries.length !== 1 ? "s" : ""} across ${fc} field${fc !== 1 ? "s" : ""} on ${logDate}.`);
-  }
-
-  if (products.length === 0) return h("div", { className: "bg-white rounded-xl border-2 border-dashed border-[#D8D9CE] p-6 text-center" },
-    h("div", { className: "text-sm text-[#6B7A5E]" }, "Check the products you'll use on the field cards above to build your Spray Plan."));
-
-  return h("div", { className: "bg-white rounded-xl border-2 border-[#2B4C3F] p-4 space-y-4" },
-    h("div", { className: "flex items-center gap-2" }, h(ClipboardList, { size: 16, className: "text-[#2B4C3F]" }),
-      h("h3", { className: "font-semibold text-sm uppercase tracking-wide text-[#2B4C3F]", style: { letterSpacing: "0.06em" } }, "Spray Plan — Pests")),
-    analysis && (analysis.flags.length ? h(FlagList, { flags: analysis.flags }) :
-      h("div", { className: "text-xs rounded px-2.5 py-1.5 bg-[#EAF0E6] text-[#3F5A34] flex items-start gap-1.5" }, h(Check, { size: 13, className: "mt-0.5 shrink-0" }), h("span", null, "No obvious conflicts among these picks — jar-test before a full batch."))),
-    h("div", { className: "grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm" },
-      [["Fields", activeFields.length], ["Total Acreage", (totalAcres || "—") + " ac"], ["Products", products.length], ["Pests Covered", pestCoverage.filter(p => p.matched.length).length + "/" + pestCoverage.length]].map(([k, v]) =>
-        h("div", { key: k, className: "bg-[#F7F8F3] rounded-lg p-2.5" }, h("div", { className: "text-[10px] uppercase text-[#8A9080]" }, k), h("div", { className: "font-semibold mono" }, v)))),
-    h("div", null, h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1.5" }, "Pests Targeted"),
-      h("div", { className: "space-y-1" }, pestCoverage.map(({ pest, matched }) => h("div", { key: pest.id, className: "text-xs flex items-start gap-1.5" },
-        matched.length ? h(Check, { size: 12, className: "text-[#2B4C3F] mt-0.5 shrink-0" }) : h(AlertTriangle, { size: 12, className: "text-[#B98A3F] mt-0.5 shrink-0" }),
-        h("span", null, h("b", null, pest.name, ":"), " ", matched.length ? matched.map(p => p.name).join(", ") : "not covered by your current picks"))))),
-    h("div", null, h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1.5" }, loads > 1 ? `Quantities — ${loads} tank loads` : "Quantities"),
-      h("table", { className: "w-full text-sm mono" },
-        h("thead", null, h("tr", { className: "text-left text-[10px] uppercase text-[#8A9080] border-b border-[#EFF1E8]" },
-          h("th", { className: "py-1.5 pr-2" }, "Product"), h("th", { className: "py-1.5 pr-2" }, "Fields"), h("th", { className: "py-1.5 pr-2" }, "Total"),
-          loads > 1 && h("th", { className: "py-1.5 pr-2" }, "Per load"))),
-        h("tbody", null, products.map(p => h("tr", { key: p.product.id, className: "border-b border-[#F2F3EE] align-top" },
-          h("td", { className: "py-1.5 pr-2" }, p.product.name, p.product.formulation === "bait" && h("span", { className: "text-[#8A9080]" }, " (bait — spread, don't spray)")),
-          h("td", { className: "py-1.5 pr-2 text-[#8A9080] text-xs" }, p.fields.join(", ")),
-          h("td", { className: "py-1.5 pr-2" }, p.lowOz === p.highOz ? `${p.lowOz.toFixed(1)} oz` : `${p.lowOz.toFixed(1)}–${p.highOz.toFixed(1)} oz`, p.missingAcreage && h("span", { className: "text-[#B98A3F]" }, " (partial)")),
-          loads > 1 && h("td", { className: "py-1.5 pr-2" }, p.product.formulation === "bait" ? "—" : `${(p.midOz / loads).toFixed(1)} oz`))))) ),
-    baitProducts.length > 0 && h("div", { className: "text-xs rounded px-2.5 py-1.5 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-1.5" },
-      h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }),
-      h("span", null, baitProducts.map(p => p.product.name).join(", "), " is a bait — broadcast it dry with a spreader (1–1.5 lb/ac) or spoon onto mounds, on warm dry ground with no rain for 24–48 hr. It's not part of the tank below.")),
-    analysis && sprayProducts.length > 0 && h("div", null,
-      h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1.5" }, "Fill Order"),
-      h("ol", { className: "text-xs text-[#3A3D33] space-y-1 list-decimal list-inside mono" },
-        h("li", null, "Fill tank ~1/3 with water, start agitation."),
-        analysis.order.dry.length > 0 && h("li", null, "Dry/WDG: ", analysis.order.dry.map(p => p.name).join(", "), "."),
-        analysis.order.soluble.length > 0 && h("li", null, "Water-soluble liquids: ", analysis.order.soluble.map(p => p.name).join(", "), "."),
-        analysis.order.ec.length > 0 && h("li", null, "Emulsifiable concentrates: ", analysis.order.ec.map(p => p.name).join(", "), "."),
-        h("li", null, "Adjuvant/NIS per label last; top off with water, keep agitating."))),
-    sprayProducts.length > 0 && h("div", null,
-      h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1.5" }, "Water to Add"),
-      h("div", { className: "flex items-end gap-3 mb-2" },
-        h("div", null, h("label", { className: "text-[10px] text-[#6B7A5E] block" }, "Spray volume (GPA)"),
-          h("input", { type: "number", value: gpa, onChange: e => setGpa(e.target.value), className: "w-24" })),
-        h("div", { className: "text-xs text-[#8A9080] pb-2" }, "for ", totalAcres || "—", " ac")),
-      totalAcres === 0
-        ? h("p", { className: "text-xs text-[#B98A3F]" }, "Set acreage on the selected fields to calculate water volume.")
-        : h("div", { className: "mono text-sm text-[#3A3D33] space-y-1 bg-[#F7F8F3] rounded-lg p-3" },
-          h("div", null, "Total spray volume: ", h("b", null, totalSprayVol.toFixed(1), " gal"), " (", gpaNum, " GPA × ", totalAcres, " ac)"),
-          h("div", null, "Liquid product: ", h("b", null, liquidVol.toFixed(2), " gal")),
-          h("div", { className: waterGal < 0 ? "text-[#8C2E1F]" : "" }, "Water to add: ", h("b", null, waterGal < 0 ? "—" : waterGal.toFixed(1) + " gal"), waterGal < 0 && " — raise GPA."),
-          tankSize > 0 && h("div", { className: "pt-1 border-t border-[#E5E7DC] mt-1" }, loads > 1 ? `Exceeds your ${tankSize}-gal tank — ${loads} loads, ~${(totalSprayVol / loads).toFixed(0)} gal each.` : `Fits one ${tankSize}-gal load.`))),
-    analysis && (analysis.maxGraze > 0 || analysis.maxHay > 0) && h("div", { className: "text-xs text-[#7A5A12] bg-[#FCF3DC] rounded px-2.5 py-1.5" },
-      "Most restrictive interval in this batch: ", h("b", null, analysis.maxGraze, " days"), " before grazing, ", h("b", null, analysis.maxHay, " days"), " before hay, ", h("b", null, analysis.maxRei, " hr"), " restricted-entry."),
-    h("div", { className: "pt-3 border-t border-[#EFF1E8] space-y-2" },
-      h("div", { className: "flex flex-wrap items-center gap-2" },
-        h("div", null, h("label", { className: "text-[10px] text-[#6B7A5E] block" }, "Date applied"),
-          h("input", { type: "date", value: logDate, onChange: e => setLogDate(e.target.value), className: "w-40" })),
-        h("button", { onClick: logIt, disabled: logging, style: { ...BTN_SOLID_STYLE, padding: "10px 16px", borderRadius: 6, fontSize: 14, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6, opacity: logging ? 0.7 : 1 } },
-          h(Check, { size: 14, color: "#FFFFFF" }), " ", logging ? "Logging…" : "Log This Plan")),
-      loggedInfo && h("div", { className: "text-xs rounded px-2.5 py-2 bg-[#EAF0E6] text-[#2B4C3F] flex items-center gap-1.5 font-medium" }, h(Check, { size: 14, className: "shrink-0" }), " ", loggedInfo)));
-}
-
 function SprayerSetupCard({ sprayerSettings, updateSprayerSettings }) {
   const h = React.createElement;
   return h("div", { className: "bg-white rounded-xl border border-[#D8D9CE] p-5" },
@@ -4579,24 +4570,34 @@ function FertilizerPlanTab(props) {
     fieldProfiles, selectedFieldNames, toggleField, fertNeeds, toggleFertNeed,
     fertForm, setFertForm, fertSel, setFertSelections, addApplications, sprayerSettings, commitFertPlan, clearFertPlan,
     month, setMonth, recentTemp, setRecentTemp, daysSinceRain, setDaysSinceRain, rainExpected, setRainExpected,
-    fertPlans, zip, setZip, weather, weatherStatus, weatherError, loadWeather
+    fertPlans, zip, setZip, weather, weatherStatus, weatherError, loadWeather, orgName
   } = props;
   const anyNeed = Object.keys(fertNeeds).some(k => fertNeeds[k]);
   const ready = selectedFieldNames.length > 0 && anyNeed;
   const neededNutrients = [["n", "N"], ["p", "P₂O₅"], ["k", "K₂O"], ["s", "S"], ["lime", "Lime"]].filter(pair => fertNeeds[pair[0]]).map(pair => pair[1]);
   const setSel = (nut, id) => setFertSelections(prev => ({ ...prev, [nut]: id }));
+  const [activeFieldName, setActiveFieldName] = useState(null);
+  const activeFp = fertPlans.find(fp => fp.name === activeFieldName) || fertPlans[0];
   return h("div", { className: "space-y-6" },
     h(FieldPicker, { fieldProfiles, selected: selectedFieldNames, onToggle: toggleField }),
     h("div", { className: "bg-white rounded-xl border border-[#D8D9CE] p-5" },
       h(SectionLabel, { icon: FlaskConical }, "What do you need to apply?"),
+      selectedFieldNames.length > 0 && h("p", { className: "text-[11px] text-[#6B7A5E] mb-2 -mt-1" }, "Tags read the selected field", selectedFieldNames.length > 1 ? "s'" : "'s", " soil test — ",
+        h("span", { className: "text-[#8C2E1F] font-semibold" }, "low"), " needs building up, ",
+        h("span", { className: "text-[#7A5A12] font-semibold" }, "medium"), " is maintenance, ",
+        h("span", { className: "text-[#3F5A34] font-semibold" }, "adequate"), " means removal-only."),
       h("div", { className: "space-y-2" }, FERT_NUTRIENTS.map(n => {
         const on = !!fertNeeds[n.id];
+        const st = fertSoilStatus(n.id, selectedFieldNames.map(nm => fieldProfiles[nm]));
+        const stStyle = { short: "bg-[#FBEAE6] text-[#8C2E1F]", marginal: "bg-[#FCF3DC] text-[#7A5A12]", ok: "bg-[#EAF0E6] text-[#3F5A34]", notest: "bg-[#EFF1E8] text-[#8A9080]", na: "bg-[#EFF1E8] text-[#8A9080]" }[st.level];
         return h("button", { key: n.id, onClick: () => toggleFertNeed(n.id),
           className: `w-full text-left rounded-lg border-2 p-3 transition-colors ${on ? "border-[#2B4C3F] bg-[#EAF0E6]" : "border-[#D8D9CE] bg-white hover:border-[#B9BFAE]"}` },
           h("div", { className: "flex items-center justify-between gap-2" },
-            h("span", { className: "font-semibold text-sm" }, n.label),
+            h("span", { className: "font-semibold text-sm flex items-center gap-2 flex-wrap" }, n.label,
+              stStyle && st.label && h("span", { className: `text-[10px] font-semibold normal-case tracking-normal px-1.5 py-0.5 rounded ${stStyle}`, title: st.tip || "" }, st.label)),
             on && h(Check, { size: 14, className: "text-[#2B4C3F] shrink-0" })),
-          h("div", { className: "text-[11px] text-[#6B7A5E] mt-0.5 leading-snug" }, n.blurb));
+          h("div", { className: "text-[11px] text-[#6B7A5E] mt-0.5 leading-snug" }, n.blurb),
+          (st.level === "short" || st.level === "notest") && st.tip && h("div", { className: "text-[11px] mt-1 leading-snug " + (st.level === "short" ? "text-[#8C2E1F]" : "text-[#8A9080]") }, st.tip));
       })),
       h("div", { className: "mt-4" },
         h("label", { className: "text-xs text-[#6B7A5E] mb-1 block" }, "Fertilizer form"),
@@ -4621,15 +4622,6 @@ function FertilizerPlanTab(props) {
           p && h("span", { className: `text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${isRec ? "bg-[#D9EEDF] text-[#1F5136]" : "bg-[#EFF1E8] text-[#8A9080]"}` }, isRec ? "recommended" : "your pick"));
       })),
       h("p", { className: "text-[10px] text-[#9CA391] mt-3" }, "Multi-nutrient products (DAP, ammonium sulfate, blends, litter) get credited across every nutrient they supply, so the straight products only fill what's left.")),
-    selectedFieldNames.length > 0 && h("div", { className: "bg-white rounded-xl border border-[#D8D9CE] p-5" },
-      h(SectionLabel, { icon: MapPin }, "Fertility Data by Field"),
-      h("div", { className: "space-y-1.5" }, selectedFieldNames.map(name => {
-        const p = fieldProfiles[name] || {};
-        const has = p.soilTest && (p.soilTest.ph || p.soilTest.pPpm || p.soilTest.kPpm);
-        return h("div", { key: name, className: "text-xs flex items-start gap-1.5" },
-          has ? h(Check, { size: 12, className: "text-[#2B4C3F] mt-0.5 shrink-0" }) : h(AlertTriangle, { size: 12, className: "text-[#B98A3F] mt-0.5 shrink-0" }),
-          h("span", null, h("b", null, name, ": "), fieldSoilLabel(p).replace(/^Rates from this field's profile: /, "").replace(/^No soil test on file — /, "no soil test — ")));
-      }))),
     h(WeatherPanel, { zip, setZip, weather, status: weatherStatus, error: weatherError, onLoad: loadWeather }),
     h(ConditionsCard, { month, setMonth, recentTemp, setRecentTemp, daysSinceRain, setDaysSinceRain, rainExpected, setRainExpected, weather }),
     !ready
@@ -4639,24 +4631,44 @@ function FertilizerPlanTab(props) {
         fertPlans.length > 0 && fertPlans.every(fp => !fp.plan.hasSoilTest) && h("div", { className: "text-sm rounded-lg px-3 py-2.5 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-2 border border-[#E8D9B8]" },
           h(AlertTriangle, { size: 15, className: "mt-0.5 shrink-0" }),
           h("span", null, h("b", null, "No soil test on any selected field. "), "These rates are starting estimates from forage type and yield goal only — a $15–25 test right-sizes P, K, and lime and usually pays for itself the first year. Enter results per field on the Fields tab.")),
-        fertPlans.map(fp => h(FertFieldSection, {
-          key: fp.name, fieldPlan: fp, defaultOpen: fertPlans.length <= 2, form: fertForm, selections: fertSel,
-          addApplications: addApplications, onCommitPlan: commitFertPlan, onClearPlan: clearFertPlan, weather: weather, sprayerSettings: sprayerSettings
-        })),
-        h(FertilizerPlanSection, { fertPlans, form: fertForm })));
+        fertPlans.length > 1
+          ? h("div", { className: "space-y-3" },
+              h("div", { className: "flex gap-1.5 flex-wrap" }, fertPlans.map(fp => {
+                const on = activeFp && activeFp.name === fp.name;
+                return h("button", {
+                  key: fp.name, onClick: () => setActiveFieldName(fp.name),
+                  className: `px-3 py-1.5 rounded-full text-sm border-2 transition-colors ${on ? "border-[#2B4C3F] bg-[#EAF0E6] text-[#23261F] font-semibold" : "border-[#D8D9CE] bg-white text-[#6B7A5E] hover:border-[#B9BFAE]"}`
+                }, fp.name);
+              })),
+              activeFp && h(FertFieldSection, {
+                key: activeFp.name, fieldPlan: activeFp, alwaysOpen: true, form: fertForm, selections: fertSel,
+                addApplications: addApplications, onCommitPlan: commitFertPlan, onClearPlan: clearFertPlan, weather: weather, sprayerSettings: sprayerSettings
+              }))
+          : fertPlans.map(fp => h(FertFieldSection, {
+              key: fp.name, fieldPlan: fp, defaultOpen: true, form: fertForm, selections: fertSel,
+              addApplications: addApplications, onCommitPlan: commitFertPlan, onClearPlan: clearFertPlan, weather: weather, sprayerSettings: sprayerSettings
+            })),
+        h(FertilizerPlanSection, { fertPlans, form: fertForm, orgName }),
+        h(PreSprayBriefing, { flags: [
+          ...((weather && weather.flags) || []),
+          ...fertPlans.flatMap(fp => (fp.plan.flags || []).map(f => ({ ...f, field: fertPlans.length > 1 ? fp.name : null })))
+        ] })));
 }
 
 function FertProgressBar({ label, target, applied, unit }) {
   const h = React.createElement;
+  const dec = /ton/i.test(unit) ? 1 : 0;
+  const fmt = n => Number(n).toFixed(dec);
   const pct = target > 0 ? Math.min(100, Math.round((applied / target) * 100)) : 0;
-  const left = Math.max(0, Math.round(target - applied));
+  const leftRaw = Math.max(0, target - applied);
+  const done = leftRaw < (dec ? 0.05 : 0.5);
   return h("div", { className: "text-sm" },
     h("div", { className: "flex justify-between mono text-xs" },
       h("span", { className: "font-semibold" }, label),
-      h("span", { className: left > 0 ? "text-[#7A5A12]" : "text-[#3F5A34]" }, left > 0 ? `${left} ${unit} to go` : "target met")),
+      h("span", { className: done ? "text-[#3F5A34]" : "text-[#7A5A12]" }, done ? "target met" : `${fmt(leftRaw)} ${unit} to go`)),
     h("div", { className: "h-2 rounded-full bg-[#EFF1E8] overflow-hidden mt-0.5" },
-      h("div", { style: { width: pct + "%", height: "100%", background: left > 0 ? "#6B7A5E" : "#3F7A4B" } })),
-    h("div", { className: "text-[10px] text-[#8A9080] mono mt-0.5" }, `${Math.round(applied)} of ${target} ${unit} applied this year`));
+      h("div", { style: { width: pct + "%", height: "100%", background: done ? "#3F7A4B" : "#6B7A5E" } })),
+    h("div", { className: "text-[10px] text-[#8A9080] mono mt-0.5" }, `${fmt(applied)} of ${fmt(target)} ${unit} applied this year`));
 }
 
 function fertItemTotal(it, acres) {
@@ -4788,10 +4800,12 @@ function FertBatchBuilder({ fieldPlan, form, selections, addApplications, onComm
           done && h("div", { className: "text-xs rounded px-2 py-1.5 bg-[#EAF0E6] text-[#2B4C3F] flex items-center gap-1.5 font-medium" }, h(Check, { size: 13 }), " ", done)));
 }
 
-function FertFieldSection({ fieldPlan, defaultOpen, form, selections, addApplications, onCommitPlan, onClearPlan, weather, sprayerSettings }) {
+function FertFieldSection({ fieldPlan, defaultOpen, alwaysOpen, form, selections, addApplications, onCommitPlan, onClearPlan, weather, sprayerSettings }) {
   const h = React.createElement;
   const { name, profile, plan, cut, targets, applied, committed, driftsFromCommitted, freshTargets, uncountedFertApps, missingNutrient, shortfall } = fieldPlan;
   const [open, setOpen] = useState(defaultOpen);
+  const [showBasis, setShowBasis] = useState(false);
+  const shown = alwaysOpen || open;
   const acres = Number(profile.acreage) > 0 ? Number(profile.acreage) : 0;
   const cartTotal = (pr) => {
     if (!acres) return "";
@@ -4801,18 +4815,18 @@ function FertFieldSection({ fieldPlan, defaultOpen, form, selections, addApplica
     return ` (${lbToTons(v)} tons)`;
   };
   return h("div", { className: "bg-white rounded-xl border-2 border-[#D8D9CE] overflow-hidden" },
-    h("button", { onClick: () => setOpen(!open), className: "w-full flex items-center justify-between px-4 py-3 text-left", style: { background: "#F7F8F3" } },
+    h(alwaysOpen ? "div" : "button", { onClick: alwaysOpen ? undefined : () => setOpen(!open), className: "w-full flex items-center justify-between px-4 py-3 text-left", style: { background: "#F7F8F3" } },
       h("div", { className: "flex items-center gap-2" }, h(MapPin, { size: 16, className: "text-[#6B7A5E]" }),
         h("div", null, h("div", { className: "display font-bold text-base leading-tight" }, name),
           h("div", { className: "text-[11px] text-[#8A9080]" }, acres ? `${acres} ac · ` : "acreage not set · ", profile.grass || "grass not set", " · ", plan.useType, profile.nearWater ? ` · ${profile.distToWater ?? "?"} ft to water` : "", cut && cut.daysSinceCut != null ? ` · cut ${cut.daysSinceCut}d ago` : ""))),
-      h(ChevronRight, { size: 16, className: `text-[#B9BFAE] transition-transform ${open ? "rotate-90" : ""}` })),
-    open && h("div", { className: "p-4 space-y-4" },
+      !alwaysOpen && h(ChevronRight, { size: 16, className: `text-[#B9BFAE] transition-transform ${open ? "rotate-90" : ""}` })),
+    shown && h("div", { className: "p-4 space-y-4" },
       h("p", { className: "text-[11px] text-[#8A9080] italic" }, fieldSoilLabel(profile)),
       plan.cartGroups && plan.cartGroups.length > 0 && h("div", { className: "rounded-lg border-2 p-3 space-y-2", style: { borderColor: "#2B7A4B", background: "#EBF6EE" } },
         h("div", { className: "flex items-center gap-2" }, h(Check, { size: 15, style: { color: "#2B7A4B" } }),
           h("h5", { className: "font-bold text-[#1F5136] text-sm" }, plan.hasSoilTest ? "Year's plan — your products, from this field's soil test" : "Year's plan — your products (no soil test on file)")),
         h("div", { className: "text-xs text-[#23402E] mono" },
-          plan.recs.filter(r => r.perAcre).map((r, i) => h("span", { key: r.nutrient }, i > 0 ? " · " : "", r.nutrient, " ", r.perAcre, " ", r.unit.replace("/yr", "")))),
+          plan.recs.filter(r => r.perAcre).map((r, i) => h("span", { key: r.nutrient }, i > 0 ? " · " : "", nutrientLabel(r.nutrient), " ", r.perAcre, " ", r.unit.replace("/yr", "")))),
         missingNutrient && missingNutrient.length > 0 && h("div", { className: "text-[11px] text-[#7A5A12]" }, "No product picked for ", missingNutrient.join(", "), " — choose one in Fertilizer Products above."),
         shortfall && shortfall.length > 0 && h("div", { className: "text-[11px] text-[#7A5A12] flex items-start gap-1" }, h(AlertTriangle, { size: 11, className: "mt-0.5 shrink-0" }),
           h("span", null, "Your chosen products leave a gap on ", shortfall.join(", "), " — a blend or single product won't cover everything. Add a straight product for that nutrient, or plan to top it up.")),
@@ -4831,20 +4845,24 @@ function FertFieldSection({ fieldPlan, defaultOpen, form, selections, addApplica
         FERT_NUT_KEYS.filter(k => (targets[k] || 0) > 0).map(k => h(FertProgressBar, { key: k, label: nutrientLabel(k), target: targets[k], applied: applied[k] || 0, unit: k === "Lime" ? "tons/ac" : "lb/ac" })),
         uncountedFertApps > 0 && h("p", { className: "text-[10px] text-[#B98A3F]" }, `${uncountedFertApps} logged fertilizer application${uncountedFertApps === 1 ? "" : "s"} this year with no nutrient breakdown — not counted above. Log new passes as batches to keep the tally right.`)),
       h(FertBatchBuilder, { fieldPlan: fieldPlan, form: form, selections: selections, addApplications: addApplications, onCommitPlan: onCommitPlan, weather: weather, sprayerSettings: sprayerSettings }),
-      h("div", null, h("div", { className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1.5" }, "This year's target"),
-        h("div", { className: "space-y-2" }, plan.recs.map(r => h("div", { key: r.nutrient, className: "text-sm" },
-          h("div", { className: "mono font-semibold text-[#23261F]" }, r.nutrient, ": ", r.perAcre == null ? "soil test needed" : `${r.perAcre} ${r.unit}`, acres > 0 && r.perAcre ? ` · ${(r.perAcre * acres).toFixed(r.unit.startsWith("tons") ? 1 : 0)} ${r.unit.replace("/ac", "")} across ${acres} ac` : ""),
+      h("div", null,
+        h("button", { onClick: () => setShowBasis(v => !v), className: "text-[11px] text-[#2B4C3F] font-medium flex items-center gap-1", style: { background: "none", border: "none", cursor: "pointer", padding: 0 } },
+          h(ChevronRight, { size: 12, className: showBasis ? "rotate-90" : "" }), showBasis ? "Hide how these targets were set" : "How were these targets set?"),
+        showBasis && h("div", { className: "space-y-2 mt-2" }, plan.recs.map(r => h("div", { key: r.nutrient, className: "text-sm" },
+          h("div", { className: "mono font-semibold text-[#23261F]" }, nutrientLabel(r.nutrient), ": ", r.perAcre == null ? "soil test needed" : `${r.perAcre} ${r.unit}`, acres > 0 && r.perAcre ? ` · ${(r.perAcre * acres).toFixed(r.unit.startsWith("tons") ? 1 : 0)} ${r.unit.replace("/ac", "")} across ${acres} ac` : ""),
           h("div", { className: "text-xs text-[#6B7A5E] leading-snug" }, r.basis))))),
       (plan.solved && plan.solved.items.length > 0) && h("p", { className: "text-[10px] text-[#9CA391]" }, plan.solved.items.map(it => `${it.product.name}: ${it.product.note}`).filter((v, i, a) => a.indexOf(v) === i).slice(0, 3).join("  ·  ")),
       acres === 0 && h("p", { className: "text-[10px] text-[#B98A3F]" }, "Set this field's acreage on the Fields tab to see total tonnage / gallons."),
-      h(FlagList, { flags: plan.flags }),
+      (plan.flags && plan.flags.length > 0) && h("p", { className: "text-[11px] text-[#8A9080] flex items-start gap-1.5" },
+        h(AlertTriangle, { size: 12, className: "mt-0.5 shrink-0" }),
+        h("span", null, plan.flags.length, " note", plan.flags.length === 1 ? "" : "s", " for this field — collected in ", h("b", null, "Read & Understand Before Spraying"), " at the bottom of the page.")),
       h("p", { className: "text-[10px] text-[#9CA391]" }, "Split nitrogen: roughly a third to a half at spring green-up, then ~50–60 lb N/ac after each hay cutting, stopping by about September 1. These are planning estimates — your soil-test lab's recommendation is the one to follow.")));
 }
 
 /* Combined fertilizer plan across every selected field. Because rates are
    driven by each field's own soil test / yield goal, fields can need
    different amounts — this breaks the totals out per field and flags it. */
-function FertilizerPlanSection({ fertPlans, form }) {
+function FertilizerPlanSection({ fertPlans, form, orgName }) {
   const h = React.createElement;
   const fields = fertPlans.filter(fp => Number(fp.profile.acreage) > 0);
   const noAcreage = fertPlans.filter(fp => !(Number(fp.profile.acreage) > 0));
@@ -4892,8 +4910,15 @@ function FertilizerPlanSection({ fertPlans, form }) {
   if (fertPlans.length === 0 || nutrients.length === 0) return null;
 
   return h("div", { className: "bg-white rounded-xl border-2 border-[#2B4C3F] p-4 space-y-4" },
-    h("div", { className: "flex items-center gap-2" }, h(ClipboardList, { size: 16, className: "text-[#2B4C3F]" }),
-      h("h3", { className: "font-semibold text-sm uppercase tracking-wide text-[#2B4C3F]", style: { letterSpacing: "0.06em" } }, "Season Materials — All Fields")),
+    h("div", { className: "flex items-center justify-between gap-2" },
+      h("div", { className: "flex items-center gap-2" }, h(ClipboardList, { size: 16, className: "text-[#2B4C3F]" }),
+        h("h3", { className: "font-semibold text-sm uppercase tracking-wide text-[#2B4C3F]", style: { letterSpacing: "0.06em" } }, "Season Materials — All Fields")),
+      h("button", {
+        onClick: () => printSeasonMaterials({ byNutrient, fieldCount: fields.length, totalAcres, nutrients, anyDiffer, orgName }),
+        title: "Print or save this buy list as a PDF",
+        className: "text-xs font-medium px-2.5 py-1.5 rounded border border-[#D8D9CE] text-[#3A3D33] flex items-center gap-1 shrink-0",
+        style: { background: "#F2F3EE" }
+      }, h(BookOpen, { size: 12 }), " Print list")),
     h("p", { className: "text-xs text-[#6B7A5E] -mt-2" }, "Everything the year's plans call for across every selected field, totaled — what to have on hand or order."),
     anyDiffer && h("div", { className: "text-xs rounded px-2.5 py-1.5 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-1.5" },
       h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }),
@@ -4974,8 +4999,10 @@ function GoalProductRow({ entry, picks, onToggle, onRate, recommended, targetKin
           h("span", { className: "font-semibold text-sm text-[#23261F]" }, p.name),
           h("span", { className: "text-[10px] mono text-[#8A9080]" }, groupLabel),
           recommended && h("span", { className: "text-[9px] uppercase tracking-wide font-bold text-[#1F5136] bg-[#D9EEDF] px-1.5 py-0.5 rounded" }, "recommended"),
-          p.restrictedUse && h("span", { className: "text-[9px] uppercase tracking-wide text-[#8C2E1F] bg-[#FBEAE6] px-1.5 py-0.5 rounded" }, "restricted-use")),
-        h("div", { className: "text-[11px] text-[#6B7A5E] mono mt-0.5" }, "label ", hi > lo ? `${lo}–${hi}` : `${lo}`, " ", p.rateUnit, " · graze ", p.grazing, " · hay ", p.hay),
+          p.restrictedUse && h("span", { className: "text-[9px] uppercase tracking-wide text-[#8C2E1F] bg-[#FBEAE6] px-1.5 py-0.5 rounded" }, "restricted-use"),
+          p.manureMonths > 0 && h("span", { className: "text-[9px] uppercase tracking-wide text-[#7A5A12] bg-[#FCF3DC] px-1.5 py-0.5 rounded" }, `hay carryover ~${p.manureMonths} mo`)),
+        h("div", { className: "text-[11px] text-[#6B7A5E] mono mt-0.5" }, "label ", hi > lo ? `${lo}–${hi}` : `${lo}`, " ", p.rateUnit, " · graze ", p.grazing, " · hay ", p.hay, h("span", { className: "text-[#9CA391]" }, " (pre-harvest intervals)")),
+        p.manureMonths > 0 && h("div", { className: "text-[11px] text-[#7A5A12] mt-0.5" }, "The hay off this field and manure from stock fed it carry a ~", p.manureMonths, "-month plant-back restriction for sensitive broadleaf crops (tomatoes, beans, tobacco) — keep it on the place."),
         entry.partial && h("div", { className: "text-[11px] text-[#B98A3F] mt-1" }, "Not eligible on ", entry.ineligible.join(", "), " (use type or season)"),
         dangerFlags.map((f, i) => h("div", { key: "d" + i, className: "text-[11px] text-[#8C2E1F] mt-1 flex items-start gap-1" }, h(AlertTriangle, { size: 11, className: "mt-0.5 shrink-0" }), h("span", null, f.field, ": ", f.text))),
         picked && h("div", { className: "mt-2" }, h(AggressionControl, { product: p, pick: picks[p.id], onChange: patch => onRate(p.id, patch) })))));
@@ -5021,11 +5048,15 @@ function RecommendedMixCard({ mix, picks, onLoad }) {
     mix.uncovered.length > 0 && h("div", { className: "text-xs text-[#8C2E1F] flex items-start gap-1.5" },
       h(AlertTriangle, { size: 12, className: "mt-0.5 shrink-0" }),
       h("span", null, "Not in this mix: ", mix.uncovered.join(", "), " — handle in that section below, as a separate pass.")),
-    mix.flags.filter(f => f.level !== "info").map((f, i) => h("div", {
-      key: i, className: `text-xs rounded px-2 py-1 flex items-start gap-1.5 ${f.level === "danger" ? "bg-[#FBEAE6] text-[#8C2E1F]" : "bg-[#FCF3DC] text-[#7A5A12]"}`
+    mix.flags.filter(f => f.level === "danger").map((f, i) => h("div", {
+      key: "d" + i, className: "text-xs rounded px-2 py-1 flex items-start gap-1.5 bg-[#FBEAE6] text-[#8C2E1F]"
     }, h(AlertTriangle, { size: 12, className: "mt-0.5 shrink-0" }), h("span", null, f.text))),
-    (mix.vetReviews || []).map((r, i) => h("div", { key: "vr" + i, className: "text-xs rounded px-2 py-1 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-1.5" },
-      h(AlertTriangle, { size: 12, className: "mt-0.5 shrink-0" }), h("span", null, "Worth a look: ", r, "."))),
+    (() => {
+      const soft = mix.flags.filter(f => f.level === "warn").length + (mix.vetReviews || []).length;
+      return soft > 0 && h("div", { className: "text-xs rounded px-2 py-1 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-1.5" },
+        h(AlertTriangle, { size: 12, className: "mt-0.5 shrink-0" }),
+        h("span", null, soft, " note", soft === 1 ? "" : "s", " on this mix — in ", h("b", null, "Read & Understand Before Spraying"), " below."));
+    })(),
     h("p", { className: "text-[10px]", style: { color: safe ? "#5E7A66" : "#8A7A4E" } },
       "Auto-composed from label data and checked two independent ways. It is not a substitute for jar-testing every batch, and each product's specimen label is the legal authority."),
     h("button", { type: "button", onClick: onLoad, className: "px-4 py-2 rounded text-sm font-semibold text-white", style: { background: border, opacity: allLoaded ? 0.7 : 1 } },
@@ -5118,13 +5149,18 @@ function TankMixPanel({ targetKind, goals, goalGroups, fieldPlans, picks, spraye
     vet.blocks.length > 0 && h("div", { className: "space-y-1.5" }, vet.blocks.map((b, i) => h("div", {
       key: "vb" + i, className: "text-xs rounded px-2.5 py-1.5 bg-[#FBEAE6] text-[#8C2E1F] flex items-start gap-1.5"
     }, h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }), h("span", null, "Safety check: ", b, ".")))),
-    analysis && (analysis.flags.filter(f => f.level !== "info").length === 0 && vet.blocks.length === 0
-      ? h("div", { className: "text-xs rounded px-2.5 py-1.5 bg-[#EAF0E6] text-[#3F5A34] flex items-start gap-1.5" }, h(Check, { size: 13, className: "mt-0.5 shrink-0" }), h("span", null, "Both compatibility checks are clear on these picks — still jar-test before a full batch."))
-      : h("div", { className: "space-y-1.5" }, analysis.flags.filter(f => f.level !== "info").map((f, i) => h("div", {
-          key: i, className: `text-xs rounded px-2.5 py-1.5 flex items-start gap-1.5 ${f.level === "danger" ? "bg-[#FBEAE6] text-[#8C2E1F]" : "bg-[#FCF3DC] text-[#7A5A12]"}`
-        }, h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }), h("span", null, f.text))))),
-    (vet.reviews || []).map((r, i) => h("div", { key: "tvr" + i, className: "text-xs rounded px-2.5 py-1.5 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-1.5" },
-      h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }), h("span", null, "Worth a look: ", r, "."))),
+    analysis && analysis.flags.filter(f => f.level === "danger").map((f, i) => h("div", {
+      key: "df" + i, className: "text-xs rounded px-2.5 py-1.5 bg-[#FBEAE6] text-[#8C2E1F] flex items-start gap-1.5"
+    }, h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }), h("span", null, f.text))),
+    (() => {
+      const soft = (analysis ? analysis.flags.filter(f => f.level === "warn").length : 0) + (vet.reviews || []).length;
+      if (soft > 0) return h("div", { className: "text-xs rounded px-2.5 py-1.5 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-1.5" },
+        h(AlertTriangle, { size: 13, className: "mt-0.5 shrink-0" }),
+        h("span", null, soft, " compatibility note", soft === 1 ? "" : "s", " — see ", h("b", null, "Read & Understand Before Spraying"), " at the bottom of the page."));
+      if (analysis && vet.blocks.length === 0 && !analysis.flags.some(f => f.level === "danger")) return h("div", { className: "text-xs rounded px-2.5 py-1.5 bg-[#EAF0E6] text-[#3F5A34] flex items-start gap-1.5" },
+        h(Check, { size: 13, className: "mt-0.5 shrink-0" }), h("span", null, "Compatibility checks clear — still jar-test before a full batch."));
+      return null;
+    })(),
     h("div", { className: "grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm" },
       [["Fields", allFieldsInPlay.length], ["Acres", (totalAcres || "—") + " ac"], ["Products", tankRows.length], [targetKind === "pest" ? "Pests covered" : "Weeds covered", `${goalCoverage.filter(g => g.covered).length}/${goalCoverage.length}`]].map(kv =>
         h("div", { key: kv[0], className: "bg-[#F7F8F3] rounded-lg p-2.5" }, h("div", { className: "text-[10px] uppercase text-[#8A9080]" }, kv[0]), h("div", { className: "font-semibold mono" }, kv[1])))),
@@ -5249,43 +5285,9 @@ function PlanTab(props) {
       return n;
     });
   }
-  return /*#__PURE__*/React.createElement("div", {
-    className: "space-y-6"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-xl border border-[#D8D9CE] p-5"
-  }, /*#__PURE__*/React.createElement(SectionLabel, {
-    icon: MapPin
-  }, "Select Field(s) to Spray"), fieldNames.length === 0 ? /*#__PURE__*/React.createElement("p", {
-    className: "text-sm text-[#6B7A5E]"
-  }, "No saved fields yet. Add one on the Fields tab — soil, grass type, water distance, and acreage live there, and this screen pulls from it automatically once it exists.") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-1 sm:grid-cols-2 gap-2"
-  }, fieldNames.map(name => {
-    const p = fieldProfiles[name] || {};
-    const active = selectedFieldNames.includes(name);
-    return /*#__PURE__*/React.createElement("button", {
-      key: name,
-      onClick: () => toggleField(name),
-      className: `text-left rounded-lg border-2 p-3 transition-colors ${active ? "border-[#2B4C3F] bg-[#EAF0E6]" : "border-[#D8D9CE] bg-white hover:border-[#B9BFAE]"}`
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center justify-between gap-2"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "font-semibold text-sm flex items-center gap-1.5"
-    }, /*#__PURE__*/React.createElement(MapPin, {
-      size: 13,
-      className: "text-[#6B7A5E] shrink-0"
-    }), " ", name), active && /*#__PURE__*/React.createElement(Check, {
-      size: 14,
-      className: "text-[#2B4C3F] shrink-0"
-    })), /*#__PURE__*/React.createElement("div", {
-      className: "text-[11px] text-[#8A9080] mt-1"
-    }, p.acreage ? `${p.acreage} ac · ` : "acreage not set · ", p.soil || "soil not set", " · ", p.grass || "grass not set"), p.nearWater && /*#__PURE__*/React.createElement("span", {
-      className: "text-[10px] mono px-1.5 py-0.5 rounded bg-[#E9F0F7] text-[#2F5C7A] inline-flex items-center gap-1 mt-1.5"
-    }, /*#__PURE__*/React.createElement(Waves, {
-      size: 10
-    }), " ", p.distToWater ?? "?", " ft to water"));
-  })), /*#__PURE__*/React.createElement("p", {
-    className: "text-[10px] text-[#9CA391] mt-2"
-  }, "Select as many as you're spraying today — you'll get one combined plan below, broken out per field."))), /*#__PURE__*/React.createElement("div", {
+  return h("div", { className: "space-y-6" },
+    h(FieldPicker, { fieldProfiles, selected: selectedFieldNames, onToggle: toggleField }),
+    /*#__PURE__*/React.createElement("div", {
     className: "bg-white rounded-xl border border-[#D8D9CE] p-5"
   }, /*#__PURE__*/React.createElement(SectionLabel, {
     icon: Sprout
@@ -5347,32 +5349,7 @@ function PlanTab(props) {
     onLoad: loadWeather
   }), h(ConditionsCard, {
     month, setMonth, recentTemp, setRecentTemp, daysSinceRain, setDaysSinceRain, rainExpected, setRainExpected, weather
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-xl border border-[#D8D9CE] p-5"
-  }, /*#__PURE__*/React.createElement(SectionLabel, {
-    icon: Droplets
-  }, "Sprayer Setup"), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-3"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "text-xs text-[#6B7A5E] mb-1 block"
-  }, "Tank size (gal)"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: sprayerSettings.tankSizeGal,
-    onChange: e => updateSprayerSettings({
-      tankSizeGal: e.target.value
-    }),
-    placeholder: "e.g. 500"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "text-xs text-[#6B7A5E] mb-1 block"
-  }, "Default spray volume (GPA)"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: sprayerSettings.defaultGpa,
-    onChange: e => updateSprayerSettings({
-      defaultGpa: e.target.value
-    })
-  }))), /*#__PURE__*/React.createElement("p", {
-    className: "text-[10px] text-[#9CA391] mt-2"
-  }, "Ground-broadcast pasture herbicides are typically applied at 10–20 GPA — 15 is a reasonable starting point, but your product labels may call for a specific range. Both of these remember your sprayer's setup between visits and feed the tank mix's water calculation below.")),
+  }),
     !readyForPlan
       ? h("div", { className: "text-sm text-[#6B7A5E] bg-white rounded-xl border border-dashed border-[#D8D9CE] p-6 text-center" }, "Select at least one field and the weeds present to generate a plan.")
       : h("div", { className: "space-y-4" },
@@ -5388,395 +5365,8 @@ function PlanTab(props) {
           h(TankMixPanel, {
             targetKind: "weed", goals: selectedWeeds, goalGroups: goalGroups, fieldPlans: fieldPlans,
             picks: picks, sprayerSettings: sprayerSettings, addApplications: addApplications, weather: weather
-          })));
-}
-
-/* ============================================================
-   FIELD PLAN SECTION — one field's recommendations, inside the
-   (possibly multi-field) plan. Checking a product here adds it
-   to the combined Spray Plan section, not a per-card log.
-   ============================================================ */
-
-function FieldPlanSection({
-  fieldPlan,
-  defaultOpen,
-  selection,
-  onToggleProduct
-}) {
-  const {
-    name,
-    profile,
-    cut,
-    recommendations,
-    excludedByTiming,
-    weedNotes
-  } = fieldPlan;
-  const [open, setOpen] = useState(defaultOpen);
-  const acresNum = Number(profile.acreage) > 0 ? Number(profile.acreage) : 0;
-  const useType = profile.useType || "pasture";
-  return /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-xl border-2 border-[#D8D9CE] overflow-hidden"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setOpen(!open),
-    className: "w-full flex items-center justify-between px-4 py-3 text-left",
-    style: {
-      background: "#F7F8F3"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement(MapPin, {
-    size: 16,
-    className: "text-[#6B7A5E]"
-  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "display font-bold text-base leading-tight"
-  }, name), /*#__PURE__*/React.createElement("div", {
-    className: "text-[11px] text-[#8A9080]"
-  }, acresNum ? `${acresNum} ac · ` : "acreage not set · ", profile.soil || "soil not set", " · ", profile.grass || "grass not set", profile.nearWater ? ` · ${profile.distToWater ?? "?"} ft to water` : "", cut && cut.daysSinceCut != null ? ` · cut ${cut.daysSinceCut}d ago` : "", " · ", recommendations.length, " match", recommendations.length !== 1 ? "es" : "", selection.length > 0 ? ` · ${selection.length} picked` : ""))), /*#__PURE__*/React.createElement(ChevronRight, {
-    size: 16,
-    className: `text-[#B9BFAE] transition-transform ${open ? "rotate-90" : ""}`
-  })), open && /*#__PURE__*/React.createElement("div", {
-    className: "p-4 space-y-3"
-  }, weedNotes && weedNotes.length > 0 && weedNotes.map((n, i) => /*#__PURE__*/React.createElement("div", {
-    key: "wn" + i,
-    className: "text-xs rounded-lg px-3 py-2 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-1.5"
-  }, /*#__PURE__*/React.createElement(AlertTriangle, {
-    size: 13,
-    className: "mt-0.5 shrink-0"
-  }), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, n.weed, ": "), n.text))), excludedByTiming && excludedByTiming.length > 0 && /*#__PURE__*/React.createElement("p", {
-    className: "text-[11px] text-[#9CA391] italic"
-  }, "Not eligible this month: ", excludedByTiming.map(e => e.name).join(", "), " — timing prerequisites aren't met (see Reference Library for details, or change the month above if that's not accurate)."), recommendations.length === 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "text-sm text-[#6B7A5E] bg-[#F7F8F3] rounded-lg p-4 text-center"
-  }, "No product in this reference set matches that combination for this field's use (", useType, "). Check the Reference Library for a wider list, or a licensed applicator can help with edge cases.") : recommendations.map(({
-    herbicide: h,
-    hits,
-    flags
-  }) => {
-    const picked = selection.includes(h.id);
-    return /*#__PURE__*/React.createElement("div", {
-      key: h.id,
-      className: `ticket bg-white rounded-lg border-2 p-4 ${picked ? "border-[#2B4C3F]" : "border-dashed border-[#D8D9CE]"}`
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-start justify-between gap-3 mb-2"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-start gap-2"
-    }, /*#__PURE__*/React.createElement("input", {
-      type: "checkbox",
-      checked: picked,
-      onChange: () => onToggleProduct(h.id),
-      className: "w-4 h-4 mt-1",
-      title: "Add to spray plan"
-    }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-      className: "display text-lg font-bold leading-tight"
-    }, h.name), /*#__PURE__*/React.createElement("div", {
-      className: "text-[11px] mono text-[#8A9080]"
-    }, "MOA GROUP ", h.moa))), /*#__PURE__*/React.createElement("span", {
-      className: "mono text-[10px] px-2 py-1 rounded bg-[#EFF1E8] text-[#3A3D33] whitespace-nowrap"
-    }, hits.length, " weed match", hits.length > 1 ? "es" : "")), /*#__PURE__*/React.createElement("div", {
-      className: "text-sm text-[#3A3D33] mb-2 mono space-y-0.5"
-    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("b", null, "Rate:"), " ", h.rateLowOz === h.rateHighOz ? h.rateLowOz : `${h.rateLowOz}–${h.rateHighOz}`, " ", h.rateUnit, acresNum > 0 && /*#__PURE__*/React.createElement("span", {
-      className: "text-[#6B7A5E]"
-    }, " ", "· ", /*#__PURE__*/React.createElement("b", null, "Total for ", acresNum, " ac:"), " ", h.rateLowOz === h.rateHighOz ? `${(h.rateLowOz * acresNum).toFixed(1)} oz` : `${(h.rateLowOz * acresNum).toFixed(1)}–${(h.rateHighOz * acresNum).toFixed(1)} oz`)), /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-wrap gap-x-4"
-    }, /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, "Grazing:"), " ", h.grazing), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, "Hay:"), " ", h.hay))), acresNum === 0 && /*#__PURE__*/React.createElement("p", {
-      className: "text-[10px] text-[#B98A3F] mb-2"
-    }, "Set this field's acreage on the Fields tab to see total ounces needed."), /*#__PURE__*/React.createElement("div", {
-      className: "text-xs text-[#6B7A5E] mb-2"
-    }, "Targets here: ", hits.map(id => WEEDS.find(w => w.id === id)?.name).join(", ")), /*#__PURE__*/React.createElement("div", {
-      className: "text-xs text-[#3A3D33] mb-2"
-    }, h.notes), /*#__PURE__*/React.createElement("div", {
-      className: "text-xs text-[#6B7A5E]"
-    }, "Window: ", h.tempWindow), flags.length > 0 && /*#__PURE__*/React.createElement("div", {
-      className: "space-y-1.5 mt-3"
-    }, flags.map((f, i) => /*#__PURE__*/React.createElement("div", {
-      key: i,
-      className: `text-xs rounded px-2.5 py-1.5 flex items-start gap-1.5 ${f.level === "danger" ? "bg-[#FBEAE6] text-[#8C2E1F]" : f.level === "warn" ? "bg-[#FCF3DC] text-[#7A5A12]" : "bg-[#EAF0E6] text-[#3F5A34]"}`
-    }, /*#__PURE__*/React.createElement(AlertTriangle, {
-      size: 13,
-      className: "mt-0.5 shrink-0"
-    }), /*#__PURE__*/React.createElement("span", null, f.text)))));
-  })));
-}
-
-/* ============================================================
-   SPRAY PLAN SECTION — the one consolidated, actionable summary:
-   fields + total acreage + weeds matched to picked products +
-   quantities to mix + total water + a fill order tailored to
-   whatever's actually picked, plus a single one-click log action.
-   ============================================================ */
-
-function SprayPlanSection({
-  fieldPlans,
-  planSelections,
-  sprayerSettings,
-  addApplications,
-  selectedWeeds,
-  weather
-}) {
-  const [gpa, setGpa] = useState(String(sprayerSettings.defaultGpa || 15));
-  const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [loggedInfo, setLoggedInfo] = useState(null);
-  const [logging, setLogging] = useState(false);
-  useEffect(() => {
-    setGpa(String(sprayerSettings.defaultGpa || 15));
-  }, [sprayerSettings.defaultGpa]);
-  useEffect(() => {
-    setLoggedInfo(null);
-  }, [planSelections, logDate]);
-  const activeFields = fieldPlans.filter(fp => (planSelections[fp.name] || []).length > 0);
-  const unpickedFields = fieldPlans.filter(fp => (planSelections[fp.name] || []).length === 0);
-  const totalAcres = activeFields.reduce((sum, fp) => {
-    const a = Number(fp.profile.acreage) > 0 ? Number(fp.profile.acreage) : 0;
-    return sum + a;
-  }, 0);
-
-  // Aggregate quantities per product across every field it was picked for.
-  const productMap = {};
-  activeFields.forEach(fp => {
-    const acres = Number(fp.profile.acreage) > 0 ? Number(fp.profile.acreage) : 0;
-    (planSelections[fp.name] || []).forEach(hid => {
-      const h = HERBICIDES.find(x => x.id === hid);
-      if (!h) return;
-      if (!productMap[hid]) productMap[hid] = {
-        herbicide: h,
-        fields: [],
-        lowOz: 0,
-        highOz: 0,
-        midOz: 0,
-        missingAcreage: false
-      };
-      productMap[hid].fields.push(fp.name);
-      if (acres > 0) {
-        productMap[hid].lowOz += h.rateLowOz * acres;
-        productMap[hid].highOz += h.rateHighOz * acres;
-        productMap[hid].midOz += (h.rateLowOz + h.rateHighOz) / 2 * acres;
-      } else {
-        productMap[hid].missingAcreage = true;
-      }
-    });
-  });
-  const products = Object.values(productMap);
-  const selectedHerbicides = products.map(p => p.herbicide);
-  const weedCoverage = selectedWeeds.map(wid => {
-    const weed = WEEDS.find(w => w.id === wid);
-    const matched = selectedHerbicides.filter(h => h.targets.includes(wid));
-    return {
-      weed,
-      matched
-    };
-  });
-  const analysis = selectedHerbicides.length >= 1 ? analyzeTankMix(selectedHerbicides) : null;
-  const gpaNum = Number(gpa) || 0;
-  const tankSize = Number(sprayerSettings.tankSizeGal) || 0;
-  const totalSprayVolumeGal = totalAcres > 0 && gpaNum > 0 ? totalAcres * gpaNum : 0;
-  const liquidVolumeGal = products.reduce((sum, p) => p.herbicide.formulation === "dry" ? sum : sum + p.midOz / 128, 0);
-  const dryList = products.filter(p => p.herbicide.formulation === "dry").map(p => ({
-    name: p.herbicide.name,
-    oz: p.midOz.toFixed(1)
-  }));
-  const waterGal = totalSprayVolumeGal - liquidVolumeGal;
-  const loadsNeeded = tankSize > 0 && totalSprayVolumeGal > 0 ? Math.ceil(totalSprayVolumeGal / tankSize) : 1;
-  async function logSpray() {
-    // Build every field+product entry first, then write them in a single batch —
-    // logging them one at a time would each overwrite the last (see addApplications).
-    const entries = [];
-    for (const fp of activeFields) {
-      const ids = planSelections[fp.name] || [];
-      const snap = recordSnapshot(fp.profile, weather, sprayerSettings);
-      for (const hid of ids) {
-        const h = HERBICIDES.find(x => x.id === hid);
-        if (!h) continue;
-        entries.push({
-          date: logDate,
-          field: fp.name,
-          category: "herbicide",
-          herbicideId: h.id,
-          herbicideName: h.name,
-          rate: h.rate,
-          weeds: selectedWeeds,
-          useType: fp.profile.useType || "pasture",
-          ...snap
-        });
-      }
-    }
-    setLogging(true);
-    await addApplications(entries);
-    setLogging(false);
-    const fieldCount = new Set(entries.map(e => e.field)).size;
-    setLoggedInfo(`Logged ${entries.length} application${entries.length !== 1 ? "s" : ""} across ${fieldCount} field${fieldCount !== 1 ? "s" : ""} on ${logDate}.`);
-  }
-  if (products.length === 0) {
-    return /*#__PURE__*/React.createElement("div", {
-      className: "bg-white rounded-xl border-2 border-dashed border-[#D8D9CE] p-6 text-center"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "text-sm text-[#6B7A5E]"
-    }, "Check the products you'll actually use on the field cards above to build your Spray Plan."));
-  }
-  return /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-xl border-2 border-[#2B4C3F] p-4 space-y-4"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement(ClipboardList, {
-    size: 16,
-    className: "text-[#2B4C3F]"
-  }), /*#__PURE__*/React.createElement("h3", {
-    className: "font-semibold text-sm uppercase tracking-wide text-[#2B4C3F]",
-    style: {
-      letterSpacing: "0.06em"
-    }
-  }, "Spray Plan")), analysis && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1.5"
-  }, "Compatibility"), analysis.flags.length === 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "text-xs rounded px-2.5 py-1.5 bg-[#EAF0E6] text-[#3F5A34] flex items-start gap-1.5"
-  }, /*#__PURE__*/React.createElement(Check, {
-    size: 13,
-    className: "mt-0.5 shrink-0"
-  }), /*#__PURE__*/React.createElement("span", null, "No documented conflicts among these picks — still jar-test before a full batch.")) : /*#__PURE__*/React.createElement("div", {
-    className: "space-y-1.5"
-  }, analysis.flags.map((f, i) => /*#__PURE__*/React.createElement("div", {
-    key: i,
-    className: `text-xs rounded px-2.5 py-1.5 flex items-start gap-1.5 ${f.level === "danger" ? "bg-[#FBEAE6] text-[#8C2E1F]" : f.level === "warn" ? "bg-[#FCF3DC] text-[#7A5A12]" : "bg-[#EAF0E6] text-[#3F5A34]"}`
-  }, /*#__PURE__*/React.createElement(AlertTriangle, {
-    size: 13,
-    className: "mt-0.5 shrink-0"
-  }), /*#__PURE__*/React.createElement("span", null, f.text))))), unpickedFields.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs rounded px-2.5 py-1.5 bg-[#FCF3DC] text-[#7A5A12] flex items-start gap-1.5"
-  }, /*#__PURE__*/React.createElement(AlertTriangle, {
-    size: 13,
-    className: "mt-0.5 shrink-0"
-  }), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, unpickedFields.map(fp => fp.name).join(", ")), " ", unpickedFields.length > 1 ? "are" : "is", " selected above but ", unpickedFields.length > 1 ? "have" : "has", " no product checked yet, so", " ", unpickedFields.length > 1 ? "they aren't" : "it isn't", " included in the totals below. Check a product on", " ", unpickedFields.length > 1 ? "those field cards" : "that field's card", " to add ", unpickedFields.length > 1 ? "them" : "it", " in.")), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-[#F7F8F3] rounded-lg p-2.5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-[10px] uppercase text-[#8A9080]"
-  }, "Fields"), /*#__PURE__*/React.createElement("div", {
-    className: "font-semibold mono"
-  }, activeFields.length)), /*#__PURE__*/React.createElement("div", {
-    className: "bg-[#F7F8F3] rounded-lg p-2.5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-[10px] uppercase text-[#8A9080]"
-  }, "Total Acreage"), /*#__PURE__*/React.createElement("div", {
-    className: "font-semibold mono"
-  }, totalAcres || "—", " ac")), /*#__PURE__*/React.createElement("div", {
-    className: "bg-[#F7F8F3] rounded-lg p-2.5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-[10px] uppercase text-[#8A9080]"
-  }, "Products"), /*#__PURE__*/React.createElement("div", {
-    className: "font-semibold mono"
-  }, products.length)), /*#__PURE__*/React.createElement("div", {
-    className: "bg-[#F7F8F3] rounded-lg p-2.5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-[10px] uppercase text-[#8A9080]"
-  }, "Weeds Covered"), /*#__PURE__*/React.createElement("div", {
-    className: "font-semibold mono"
-  }, weedCoverage.filter(w => w.matched.length > 0).length, "/", weedCoverage.length))), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#6B7A5E] mono"
-  }, /*#__PURE__*/React.createElement("b", null, "Fields in this plan:"), " ", activeFields.map(fp => `${fp.name} (${fp.profile.acreage || "?"} ac)`).join(", ")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1.5"
-  }, "Weeds Targeted"), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-1"
-  }, weedCoverage.map(({
-    weed,
-    matched
-  }) => /*#__PURE__*/React.createElement("div", {
-    key: weed.id,
-    className: "text-xs flex items-start gap-1.5"
-  }, matched.length > 0 ? /*#__PURE__*/React.createElement(Check, {
-    size: 12,
-    className: "text-[#2B4C3F] mt-0.5 shrink-0"
-  }) : /*#__PURE__*/React.createElement(AlertTriangle, {
-    size: 12,
-    className: "text-[#B98A3F] mt-0.5 shrink-0"
-  }), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, weed.name, ":"), " ", matched.length > 0 ? matched.map(h => h.name).join(", ") : "not covered by your current picks"))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1.5"
-  }, loadsNeeded > 1 ? `Quantities to Mix — ${loadsNeeded} tank loads` : "Quantities to Mix"), /*#__PURE__*/React.createElement("table", {
-    className: "w-full text-sm mono"
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
-    className: "text-left text-[10px] uppercase text-[#8A9080] border-b border-[#EFF1E8]"
-  }, /*#__PURE__*/React.createElement("th", {
-    className: "py-1.5 pr-2"
-  }, "Product"), /*#__PURE__*/React.createElement("th", {
-    className: "py-1.5 pr-2"
-  }, "Fields"), /*#__PURE__*/React.createElement("th", {
-    className: "py-1.5 pr-2"
-  }, "Total"), loadsNeeded > 1 && /*#__PURE__*/React.createElement("th", { className: "py-1.5 pr-2" }, "Per load"))), /*#__PURE__*/React.createElement("tbody", null, products.map(p => /*#__PURE__*/React.createElement("tr", {
-    key: p.herbicide.id,
-    className: "border-b border-[#F2F3EE] align-top"
-  }, /*#__PURE__*/React.createElement("td", {
-    className: "py-1.5 pr-2"
-  }, p.herbicide.name), /*#__PURE__*/React.createElement("td", {
-    className: "py-1.5 pr-2 text-[#8A9080] text-xs"
-  }, p.fields.join(", ")), /*#__PURE__*/React.createElement("td", {
-    className: "py-1.5 pr-2"
-  }, p.lowOz === p.highOz ? `${p.lowOz.toFixed(1)} oz` : `${p.lowOz.toFixed(1)}–${p.highOz.toFixed(1)} oz`, p.missingAcreage && /*#__PURE__*/React.createElement("span", {
-    className: "text-[#B98A3F]"
-  }, " (partial — some fields missing acreage)")), loadsNeeded > 1 && /*#__PURE__*/React.createElement("td", { className: "py-1.5 pr-2" }, `${(p.midOz / loadsNeeded).toFixed(1)} oz`)))))), analysis && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1.5"
-  }, "Fill Order (WALES/DALES)"), /*#__PURE__*/React.createElement("ol", {
-    className: "text-xs text-[#3A3D33] space-y-1 list-decimal list-inside mono"
-  }, /*#__PURE__*/React.createElement("li", null, "Fill tank ~1/3 to 1/2 full with water, start agitation."), analysis.order.dry.length > 0 && /*#__PURE__*/React.createElement("li", null, "Add dry/WDG products, agitate between each: ", analysis.order.dry.map(h => h.name).join(", "), "."), analysis.order.soluble.length > 0 && /*#__PURE__*/React.createElement("li", null, "Add water-soluble liquids, agitate: ", analysis.order.soluble.map(h => h.name).join(", "), "."), analysis.order.ec.length > 0 && /*#__PURE__*/React.createElement("li", null, "Add emulsifiable concentrate/ester products, agitate: ", analysis.order.ec.map(h => h.name).join(", "), "."), /*#__PURE__*/React.createElement("li", null, "Add any required surfactant/NIS per label last."), /*#__PURE__*/React.createElement("li", null, "Top off with remaining water to total volume; keep agitating until and during spraying."))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "text-[10px] uppercase tracking-wide text-[#8A9080] mb-1.5"
-  }, "Water to Add"), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-end gap-3 mb-2"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "text-[10px] text-[#6B7A5E] block"
-  }, "Spray volume (GPA)"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: gpa,
-    onChange: e => setGpa(e.target.value),
-    className: "w-24"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#8A9080] pb-2"
-  }, "for ", totalAcres || "—", " ac total")), totalAcres === 0 ? /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-[#B98A3F]"
-  }, "Set acreage on the selected fields' profiles to calculate water volume.") : /*#__PURE__*/React.createElement("div", {
-    className: "mono text-sm text-[#3A3D33] space-y-1 bg-[#F7F8F3] rounded-lg p-3"
-  }, /*#__PURE__*/React.createElement("div", null, "Total spray volume: ", /*#__PURE__*/React.createElement("b", null, totalSprayVolumeGal.toFixed(1), " gal"), " (", gpaNum, " GPA × ", totalAcres, " ac)"), /*#__PURE__*/React.createElement("div", null, "Liquid product volume: ", /*#__PURE__*/React.createElement("b", null, liquidVolumeGal.toFixed(2), " gal")), dryList.length > 0 && /*#__PURE__*/React.createElement("div", null, "Dry product (dissolves in, negligible volume): ", dryList.map(d => `${d.name} ${d.oz} oz`).join("; ")), /*#__PURE__*/React.createElement("div", {
-    className: waterGal < 0 ? "text-[#8C2E1F]" : ""
-  }, "Water to add: ", /*#__PURE__*/React.createElement("b", null, waterGal < 0 ? "—" : waterGal.toFixed(1) + " gal"), waterGal < 0 && " — your GPA is too low to hold this much product; raise GPA."), tankSize > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "pt-1 border-t border-[#E5E7DC] mt-1"
-  }, loadsNeeded > 1 ? /*#__PURE__*/React.createElement(React.Fragment, null, "This exceeds your ", tankSize, "-gal tank — you'll need ", /*#__PURE__*/React.createElement("b", null, loadsNeeded, " tank loads"), ", about ", (totalSprayVolumeGal / loadsNeeded).toFixed(0), " gal of finished mix each.") : /*#__PURE__*/React.createElement(React.Fragment, null, "Fits in one ", tankSize, "-gal tank load."))), /*#__PURE__*/React.createElement("p", {
-    className: "text-[10px] text-[#9CA391] mt-2"
-  }, "Assumes one combined tank batch covering every field checked above. Rates use the midpoint of each product's range for this estimate — dial in the exact rate per the current label, and jar-test any new combination before a full batch.")), /*#__PURE__*/React.createElement("div", {
-    className: "pt-3 border-t border-[#EFF1E8] space-y-2"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-wrap items-center gap-2"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "text-[10px] text-[#6B7A5E] block"
-  }, "Date sprayed"), /*#__PURE__*/React.createElement("input", {
-    type: "date",
-    value: logDate,
-    onChange: e => setLogDate(e.target.value),
-    className: "w-40"
-  })), /*#__PURE__*/React.createElement("button", {
-    onClick: logSpray,
-    disabled: logging,
-    style: {
-      appearance: "none",
-      WebkitAppearance: "none",
-      MozAppearance: "none",
-      border: "none",
-      cursor: logging ? "default" : "pointer",
-      backgroundColor: "#2B4C3F",
-      color: "#FFFFFF",
-      padding: "10px 16px",
-      borderRadius: 6,
-      fontSize: 14,
-      fontWeight: 600,
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 6,
-      opacity: logging ? 0.7 : 1
-    }
-  }, /*#__PURE__*/React.createElement(Check, {
-    size: 14,
-    color: "#FFFFFF"
-  }), " ", logging ? "Logging…" : "Log This Spray Plan")), loggedInfo && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs rounded px-2.5 py-2 bg-[#EAF0E6] text-[#2B4C3F] flex items-center gap-1.5 font-medium"
-  }, /*#__PURE__*/React.createElement(Check, {
-    size: 14,
-    className: "shrink-0"
-  }), " ", loggedInfo)));
+          }),
+          h(PreSprayBriefing, { flags: buildTankBriefingFlags({ picks, goalGroups, mix, weather, kind: "weed", weedNotes }) })));
 }
 
 /* ============================================================
@@ -6204,7 +5794,7 @@ function RestrictionsBlock({ name, applications }) {
     h("div", { className: "font-semibold flex items-center gap-1.5 uppercase tracking-wide text-[10px]" }, h(AlertTriangle, { size: 12 }), "Restrictions in effect"),
     line("Grazing", r.graze),
     line("Hay", r.hay),
-    r.carry.until && r.carry.until > todayISO() && h("div", null, h("b", null, "Aminopyralid carryover: "), `hay, manure, and compost off this field are restricted until about ${r.carry.until} — ${shortProductName(r.carry.product)}. Don't sell, give away, or spread it off-property before then.`),
+    r.carry.until && r.carry.until > todayISO() && h("div", null, h("b", null, "Hay / manure carryover: "), `hay, manure, and compost off this field are restricted until about ${r.carry.until} — ${shortProductName(r.carry.product)} residue damages sensitive broadleaf crops. Don't sell, give it away, or spread it off-property before then.`),
     h("div", { className: "text-[10px] text-[#9A8A5E] pt-0.5" }, "From logged application dates + label intervals. The container label is the legal source — verify before you graze or cut."));
 }
 
@@ -6635,7 +6225,8 @@ function calendarEventsForMonth(year, m0, data) {
   apps.forEach(a => {
     const kind = a.category === "fertilizer" ? "fert" : a.category === "insecticide" ? "pest" : "herbicide";
     const label = a.category === "fertilizer" ? "Fertilizer" : a.category === "insecticide" ? "Insecticide" : "Herbicide";
-    push(a.date, a.field, kind, a.herbicideName || label, `${label} applied${a.rate ? " — " + a.rate : ""}.`, "logged");
+    const rateStr = typeof a.rate === "string" ? a.rate : "";
+    push(a.date, a.field, kind, (typeof a.herbicideName === "string" && a.herbicideName) || label, `${label} applied${rateStr ? " — " + rateStr : ""}.`, "logged");
   });
 
   fields.forEach(field => {
@@ -6655,7 +6246,7 @@ function calendarEventsForMonth(year, m0, data) {
     const r = computeFieldRestrictions(field, apps);
     if (r.graze.until) push(r.graze.until, field, "restriction", "Grazing OK", `${shortProductName(r.graze.product)} grazing interval ends.`, "restriction");
     if (r.hay.until) push(r.hay.until, field, "restriction", "Hay OK", `${shortProductName(r.hay.product)} hay interval ends.`, "restriction");
-    if (r.carry.until) push(r.carry.until, field, "restriction", "Carryover hold lifts", `The aminopyralid / picloram hay & manure hold from ${shortProductName(r.carry.product)} lifts (approximate).`, "restriction");
+    if (r.carry.until) push(r.carry.until, field, "restriction", "Carryover hold lifts", `The hay & manure carryover hold from ${shortProductName(r.carry.product)} lifts (approximate).`, "restriction");
 
     const msmaApps = fApps.filter(a => a.herbicideId === "msma");
     if (msmaApps.length === 1) push(shiftISO(msmaApps[0].date, { days: 9 }), field, "herbicide", "MSMA 2nd pass", "The label calls for a second application 7–10 days after the first for dallisgrass.", "due");
@@ -6845,7 +6436,7 @@ function CalendarTab({ applications, cuttings, fieldProfiles, weather, orgName, 
    PROFILE TAB — company / ranch identity, shown in the header
    ============================================================ */
 
-function ProfileTab({ orgProfile, onSave, applications, cuttings, fieldProfiles }) {
+function ProfileTab({ orgProfile, onSave, sprayerSettings, updateSprayerSettings, applications, cuttings, fieldProfiles }) {
   const h = React.createElement;
   const p = orgProfile || {};
   const nFields = Object.keys(fieldProfiles || {}).length;
@@ -6862,6 +6453,7 @@ function ProfileTab({ orgProfile, onSave, applications, cuttings, fieldProfiles 
       row("Company or ranch name", "name", "e.g. Cedar Bend Cattle Co."),
       row("Operator / manager", "operator", "e.g. name of whoever runs the place"),
       row("Notes", "notes", "Location, permit numbers, anything you want on record", true)),
+    h(SprayerSetupCard, { sprayerSettings, updateSprayerSettings }),
     h("div", { className: "bg-white rounded-xl border border-[#D8D9CE] p-5" },
       h(SectionLabel, { icon: Layers }, "This operation at a glance"),
       h("div", { className: "grid grid-cols-2 sm:grid-cols-4 gap-3 text-center" },
@@ -6963,7 +6555,8 @@ function ReferenceTab({ customProducts, onSaveCustom, onRemoveCustom }) {
   const matchTarget = (ids, list) => (ids || []).some(id => { const t = list.find(z => z.id === id); return t && t.name.toLowerCase().includes(ql); });
   const herbCard = x => card(x.id, x.name, `MOA ${x.moa} · ${x.use.join(" & ")}${productLabelData(x.id).epaReg ? " · EPA " + productLabelData(x.id).epaReg : ""}`, x.restrictedUse, [
     ["Targets", x.targets.map(id => (WEEDS.find(w => w.id === id) || {}).name).filter(Boolean).join(", ")],
-    ["Rate", x.rate], ["Grazing", x.grazing], ["Hay", x.hay],
+    ["Rate", x.rate], ["Grazing PHI", x.grazing], ["Hay PHI", x.hay],
+    x.manureMonths > 0 ? ["Hay/manure carryover", `~${x.manureMonths} months — treated hay and manure damage sensitive broadleaf crops; keep them on the place`] : null,
     productLabelData(x.id).annualMaxOz != null ? ["Annual max", `${productLabelData(x.id).annualMaxOz} ${x.rateUnit}`] : null,
     ["Water buffer", `~${x.waterBufferFt} ft`], ["Window", x.tempWindow], ["_note", x.notes]
   ]);
